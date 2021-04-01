@@ -19,6 +19,13 @@ function addNewItem(e) {
     console.log("hihi")
 }
 
+// Create Store Folder with IPNS
+function createStore() {
+
+}
+
+
+
 // Set PeerID and other information
 window.addEventListener('DOMContentLoaded', () => {
     const replaceText = (selector, text) => {
