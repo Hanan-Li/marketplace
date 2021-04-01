@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Marketplace</title>
+    <link rel="stylesheet" href="./contents/bootstrap/css/bootstrap.min.css"/>
+    <script src="./contents/jquery/jquery-3.6.0.min.js"></script>
+    <script src="./contents/popper.js/popper.min.js"></script>
+    <script src="./contents/bootstrap/js/bootstrap.min.js"></script>
+  </head>
+  <body>
+    <!-- NavBar -->
+    <nav class="navbar navbar-dark bg-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">
+          <img src="./images/demazon.png" alt="" width="100" height="40" class="d-inline-block align-text-top">
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+          <div class="navbar-nav">
+            <a class="nav-link active" aria-current="page" href="#">Your Shop</a>
+            <a class="nav-link" href="#">Available shops</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Your Shop Area -->
+    <h1>Your Shop</h1>
+    Your Peer Id: <div id="PeerId"></div>
+    Your rating : <div id= "Rating"> 5/5</div>
+    Your Items: 
+    <div class="container-fluid">
+      <div class="row">
+        <div class="col-sm">
+          <div class="card" style="width: 18rem;">
+            <img src="..." class="card-img-top" alt="...">
+            <div class="card-body">
+              <h5 class="card-title">Item 1</h5>
+              <p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
+              <a href="#" class="btn btn-primary">Go somewhere</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm">
+          <div class="card" style="width: 18rem;">
+            <img src="..." class="card-img-top" alt="...">
+            <div class="card-body">
+              <h5 class="card-title">Item 2</h5>
+              <p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
+              <a href="#" class="btn btn-primary">Go somewhere</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm">
+          <div class="card" style="width: 18rem;">
+            <img src="..." class="card-img-top" alt="...">
+            <div class="card-body">
+              <h5 class="card-title">Item 3</h5>
+              <p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
+              <a href="#" class="btn btn-primary">Go somewhere</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      List an item to the Marketplace:
+      <form id="list item" onSubmit="addNewItem(event)">
+        <div class="mb-3">
+          <label for="ItemName" class="form-label">Item Name</label>
+          <input type="text" class="form-control" id="ItemName">
+        </div>
+        <div class="mb-3">
+          <label for="ItemPrice" class="form-label">Item Price</label>
+          <input type="number" class="form-control" id="ItemPrice">
+        </div>
+        <button type="submit" class="btn btn-primary">Submit</button>
+      </form>
+    </div>
+    
+  </body>
+  <script src ="ownshop.js"></script>
+</html>
