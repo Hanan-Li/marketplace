@@ -23,7 +23,15 @@ const createWindow = () => {
 
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
+
+  var pyshell =  require('python-shell');
+  pyshell.run(path.join(__dirname, 'engine.py'), options, function (err, results) {
+   if (err) throw err;
+   console.log('hello.py finished.');
+   console.log('results', results);
+  });
 };
+
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.

@@ -1,3 +1,5 @@
+const cid1 = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
+
 // Javascript for main page
 const  create  = require('ipfs-http-client');
 const ipfs = create();
