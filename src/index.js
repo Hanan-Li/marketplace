@@ -25,7 +25,10 @@ const createWindow = () => {
   mainWindow.webContents.openDevTools();
 
   var pyshell =  require('python-shell');
-  pyshell.run(path.join(__dirname, 'engine.py'), options, function (err, results) {
+  pyshell.defaultOptions = {
+    scriptPath: __dirname
+  };
+  pyshell.run('engine.py', null, function (err, results) {
    if (err) throw err;
    console.log('hello.py finished.');
    console.log('results', results);
