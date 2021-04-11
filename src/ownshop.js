@@ -1,5 +1,3 @@
-const cid1 = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
-
 // Javascript for main page
 const electron = require('electron');
 // Importing the net Module from electron remote
@@ -28,15 +26,18 @@ function addNewItem(e) {
     console.log("hihi");
     console.log(__dirname + '/data/test');
     const fs = require('fs');
-    let data = "hello world.";
+    let data = "hello";
     fs.writeFile(__dirname + '/data/test', data, (err) => {
         if (err) throw err;
     });
-    // const oldFile = ipfs.pin.rm(DataID);
+    if (DataID) {
+        const oldFile = ipfs.pin.rm(DataID);
+    }
     const newFile = ipfs.add(globSource(__dirname + '/data/', { recursive: true }));
-    console.log(newFile);
-    DataID = newFile[0];
-    console.log(DataID);
+    newFile.then(function (val) {
+        console.log(val['cid']['string']);
+        DataID = val['cid']['string'];
+    });
     // test();
 }
 
