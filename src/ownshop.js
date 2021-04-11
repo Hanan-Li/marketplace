@@ -31,6 +31,7 @@ function createStore() {
 
 }
 
+// Send request to flask server and get response back
 function test() {
     var body = JSON.stringify({ "ID": 1 });
     const request = net.request({
