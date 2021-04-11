@@ -66,7 +66,7 @@ async function addNewItem(e) {
     // test();
 
     // publish the newly added item to others under the subscription
-    const msg = new TextEncoder().encode('publish:banana')
+    const msg = new TextEncoder().encode('publish: ' + itemName + ' ' + itemPrice + ' ' + fileID)
     await ipfs.pubsub.publish(topic, msg)
     // msg was broadcasted
     console.log(`published to ${topic}`)
