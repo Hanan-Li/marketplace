@@ -11,6 +11,8 @@ let PeerID = '';
 const fileAddress = __dirname + '/data/store';
 console.log('store file address:', fileAddress);
 let fileID = '';
+var storeItems = { items: [] };
+let itemID = 0;
 const topic = "demazon";
 // let DataID = '';
 ipfs.config.getAll();
@@ -35,7 +37,15 @@ async function addNewItem(e) {
     console.log(itemName);
     console.log(itemPrice);
 
-    // TODO: add the newly added item to ipfs, use IPNS to enable mutability
+    // Add new item to store file
+    storeItems['items'].push({ id: itemID, name: itemName, price: itemPrice });
+    itemID = itemID + 1;
+    const fs = require('fs');
+    fs.writeFile(fileAddress, JSON.stringify(storeItems), (err) => {
+        if (err) throw err;
+    });
+    // publish new item
+    publishIPNS();
 
     // Write file and add to node
     // console.log(__dirname + '/data/test');
