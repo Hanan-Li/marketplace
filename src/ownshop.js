@@ -8,8 +8,11 @@ const { globSource } = require('ipfs-http-client');
 const { CID } = require('ipfs-http-client');
 const ipfs = create();
 let PeerID = '';
+const fileAddress = __dirname + '/data/store';
+console.log('store file address:', fileAddress);
+let fileID = '';
 const topic = "demazon";
-let DataID = '';
+// let DataID = '';
 ipfs.config.getAll();
 
 createStore();
@@ -31,10 +34,10 @@ async function addNewItem(e) {
     const itemPrice = document.getElementById('ItemPrice').value;
     console.log(itemName);
     console.log(itemPrice);
-    console.log("hihi");
 
     // TODO: add the newly added item to ipfs, use IPNS to enable mutability
 
+    // Write file and add to node
     // console.log(__dirname + '/data/test');
     // const fs = require('fs');
     // let data = "hello";
@@ -52,26 +55,36 @@ async function addNewItem(e) {
 
     // test();
 
-    // publish the newly added item to others under the subsciption
+    // publish the newly added item to others under the subscription
     const msg = new TextEncoder().encode('publish:banana')
     await ipfs.pubsub.publish(topic, msg)
     // msg was broadcasted
     console.log(`published to ${topic}`)
 }
 
-// Create Store Folder with IPNS
+// Create Store
 async function createStore() {
-    // receive msg from subscription
+    // Create initial store file with ipns
+    console.log('initialize store file');
+    // Create file store if not exist under data/ folder
+    // const fs = require('fs');
+    // fs.writeFile(fileAddress, '', (err) => {
+    //     if (err) throw err;
+    // });
+    publishIPNS();
+
+    // Receive msg from subscription
+    console.log("receive pubsub msg");
     const receiveMsg = (msg) => {
         console.log(msg);
         console.log(ab2str(msg.data));
-        console.log("received from: ", msg.from);
+        console.log("received from:", msg.from);
 
         // handle the msg
         let data = ab2str(msg.data);
         let idx = data.indexOf(":");
         let query = data.substring(0, idx);
-        let arg = data.substring(idx+1);
+        let arg = data.substring(idx + 1);
         console.log(query);
         console.log(arg);
         if (query == "publish") {
@@ -83,6 +96,19 @@ async function createStore() {
 
     await ipfs.pubsub.subscribe(topic, receiveMsg)
     console.log(`subscribed to ${topic}`);
+}
+
+async function publishIPNS() {
+    // add changed store file
+    const storeFile = await ipfs.add(globSource(fileAddress, { recursive: false, pin: false }));
+    console.log(`${storeFile.cid}`)
+    // publish
+    const publishFile = await ipfs.name.publish(`/ipfs/${storeFile.cid}`);
+    console.log(`${publishFile.name}`);
+    // remove old pinned store file
+    // ipfs.pin.rm(`${storeFile.cid}`);
+    fileID = `${publishFile.name}`;
+    // console.log(fileID);
 }
 
 // Send request to flask server and get response back
@@ -115,7 +141,7 @@ function test() {
         console.log(`ERROR: ${JSON.stringify(error)}`)
     });
     request.on('close', (error) => {
-        console.log('Last Transaction has occured')
+        console.log('Last Transaction has occurred')
     });
     request.setHeader('Content-Type', 'application/json');
     request.write(body, 'utf-8');
