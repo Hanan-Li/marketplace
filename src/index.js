@@ -24,15 +24,15 @@ const createWindow = () => {
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
 
-  var pyshell =  require('python-shell');
-  pyshell.defaultOptions = {
-    scriptPath: __dirname
-  };
-  pyshell.run('engine.py', null, function (err, results) {
-   if (err) throw err;
-   console.log('hello.py finished.');
-   console.log('results', results);
-  });
+  // var pyshell =  require('python-shell');
+  // pyshell.defaultOptions = {
+  //   scriptPath: __dirname
+  // };
+  // pyshell.run('engine.py', null, function (err, results) {
+  //  if (err) throw err;
+  //  console.log('hello.py finished.');
+  //  console.log('results', results);
+  // });
 };
 
 
