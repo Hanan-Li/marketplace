@@ -5,9 +5,12 @@ const electron = require('electron');
 // Importing the net Module from electron remote
 const net = electron.remote.net;
 
-const  create  = require('ipfs-http-client');
+const create = require('ipfs-http-client');
+const { globSource } = require('ipfs-http-client');
+const { CID } = require('ipfs-http-client');
 const ipfs = create();
 let PeerID = '';
+let DataID = '';
 ipfs.config.getAll();
 // Function to get Peer ID
 async function getPeerId() {
@@ -23,7 +26,18 @@ function addNewItem(e) {
     console.log(itemName);
     console.log(itemPrice);
     console.log("hihi");
-    test();
+    console.log(__dirname + '/data/test');
+    const fs = require('fs');
+    let data = "hello world.";
+    fs.writeFile(__dirname + '/data/test', data, (err) => {
+        if (err) throw err;
+    });
+    // const oldFile = ipfs.pin.rm(DataID);
+    const newFile = ipfs.add(globSource(__dirname + '/data/', { recursive: true }));
+    console.log(newFile);
+    DataID = newFile[0];
+    console.log(DataID);
+    // test();
 }
 
 // Create Store Folder with IPNS
@@ -40,16 +54,16 @@ function test() {
         hostname: 'localhost',
         port: 5000,
         path: '/test'
-      })
+    })
     request.on('response', (response) => {
-      console.log(`STATUS: ${response.statusCode}`)
-      console.log(`HEADERS: ${JSON.stringify(response.headers)}`)
-      response.on('data', (chunk) => {
-        console.log(`BODY: ${chunk}`)
-      })
-      response.on('end', () => {
-        console.log('No more data in response.')
-      })
+        console.log(`STATUS: ${response.statusCode}`)
+        console.log(`HEADERS: ${JSON.stringify(response.headers)}`)
+        response.on('data', (chunk) => {
+            console.log(`BODY: ${chunk}`)
+        })
+        response.on('end', () => {
+            console.log('No more data in response.')
+        })
     });
     request.on('finish', () => {
         console.log('Request is Finished')
@@ -72,11 +86,11 @@ function test() {
 // Set PeerID and other information
 window.addEventListener('DOMContentLoaded', () => {
     const replaceText = (selector, text) => {
-      const element = document.getElementById(selector)
-      if (element) element.innerText = text
+        const element = document.getElementById(selector)
+        if (element) element.innerText = text
     }
     getPeerId().then(result => {
         replaceText('PeerId', PeerID);
     });
-    
-  })
+
+})
