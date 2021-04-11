@@ -11,3 +11,16 @@ Built using Electron and js-ipfs http client
 1. Start App by:
     1. npm install
     1. npm start
+
+## Notes
+- ipfs CLI
+```bash
+# in one terminal: start ipfs with pubsub enabled
+ipfs daemon ipfs daemon --enable-pubsub-experiment
+
+# in a new terminal: subscribe to topic "demazon"
+ipfs pubsub sub demazon
+
+# in a new termial: publish to subscription
+ipfs pubsub pub demazon publish:<CID>
+```
