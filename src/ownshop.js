@@ -13,6 +13,7 @@ console.log('store file address:', fileAddress);
 let fileID = '';
 var storeItems = { items: [] };
 let itemID = 0;
+const knownStore = new Set();
 const topic = "demazon";
 // let DataID = '';
 ipfs.config.getAll();
@@ -46,6 +47,8 @@ async function addNewItem(e) {
     });
     // publish new item
     publishIPNS();
+    // update item card
+    updateItemCard();
 
     // Write file and add to node
     // console.log(__dirname + '/data/test');
@@ -66,7 +69,7 @@ async function addNewItem(e) {
     // test();
 
     // publish the newly added item to others under the subscription
-    const msg = new TextEncoder().encode('publish: ' + itemName + ' ' + itemPrice + ' ' + fileID)
+    const msg = new TextEncoder().encode('publish:' + itemName + ' ' + itemPrice + ' ' + fileID)
     await ipfs.pubsub.publish(topic, msg)
     // msg was broadcasted
     console.log(`published to ${topic}`)
@@ -97,9 +100,12 @@ async function createStore() {
         let arg = data.substring(idx + 1);
         console.log(query);
         console.log(arg);
+        var args = arg.split(" ");
         if (query == "publish") {
             // TODO: update display list
-            console.log("add item to display list.");
+            console.log("new item listed.");
+            // add new store to store set
+            knownStore.add(args[2]);
         }
         // TODO: handle other queries like transaction?
     }
@@ -119,6 +125,20 @@ async function publishIPNS() {
     // ipfs.pin.rm(`${storeFile.cid}`);
     fileID = `${publishFile.name}`;
     // console.log(fileID);
+}
+
+function updateItemCard() {
+    // update item card, only keep first three items for now
+    // clean up
+    for (let index = 0; index < 3; index++) {
+        document.getElementById("ith" + index).innerText = "No Item";
+        document.getElementById("itp" + index).innerText = "No Item";
+    }
+    // update
+    for (let index = 0; index < Math.min(3, storeItems['items'].length); index++) {
+        document.getElementById("ith" + index).innerText = storeItems['items'][index].name;
+        document.getElementById("itp" + index).innerText = storeItems['items'][index].price;
+    }
 }
 
 // Send request to flask server and get response back
