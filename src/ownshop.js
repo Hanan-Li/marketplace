@@ -75,6 +75,42 @@ async function addNewItem(e) {
     console.log(`published to ${topic}`)
 }
 
+// Search Item
+async function searchItem(e) {
+    e.preventDefault();
+    // clean up search item card
+    for (let index = 0; index < 3; index++) {
+        document.getElementById("sith" + index).innerText = "No Item";
+        document.getElementById("sitp" + index).innerText = "No Item";
+    }
+    const searchItemName = document.getElementById('searchItemName').value;
+    console.log(searchItemName);
+    let itemFound = 0;
+    for (let store of knownStore) {
+        console.log(store);
+        // console.log(ipfs.cat('/ipns/' + store));
+        // console.log(ipfs.name.resolve('/ipns/' + store));
+        // for await (const name of ipfs.name.resolve('/ipns/' + store)) {
+        //     console.log(name)
+        // }
+        const chunks = []
+        for await (const chunk of ipfs.cat('/ipns/' + store)) {
+            chunks.push(chunk);
+        }
+        const items = JSON.parse(Buffer.concat(chunks).toString());
+        console.log(items)
+        for (let item of items['items']) {
+            console.log(item.name);
+            if (item.name == searchItemName) {
+                console.log('find item');
+                document.getElementById("sith" + itemFound).innerText = item.name;
+                document.getElementById("sitp" + itemFound).innerText = item.price + '\n' + store;
+                itemFound = itemFound + 1;
+            }
+        }
+    }
+}
+
 // Create Store
 async function createStore() {
     // Create initial store file with ipns
@@ -105,9 +141,13 @@ async function createStore() {
             // TODO: update display list
             console.log("new item listed.");
             // add new store to store set
+            console.log(args[2]);
             knownStore.add(args[2]);
         }
         // TODO: handle other queries like transaction?
+        if (query == "score") {
+
+        }
     }
 
     await ipfs.pubsub.subscribe(topic, receiveMsg)
