@@ -11,7 +11,7 @@ let PeerID = '';
 const fileAddress = __dirname + '/data/store';
 console.log('store file address:', fileAddress);
 let fileID = '';
-var storeItems = { items: [] };
+var storeInfo = { items: [], scores: [] };
 let itemID = 0;
 const knownStore = new Set();
 const topic = "demazon";
@@ -39,10 +39,10 @@ async function addNewItem(e) {
     console.log(itemPrice);
 
     // Add new item to store file
-    storeItems['items'].push({ id: itemID, name: itemName, price: itemPrice });
+    storeInfo['items'].push({ id: itemID, name: itemName, price: itemPrice });
     itemID = itemID + 1;
     const fs = require('fs');
-    fs.writeFile(fileAddress, JSON.stringify(storeItems), (err) => {
+    fs.writeFile(fileAddress, JSON.stringify(storeInfo), (err) => {
         if (err) throw err;
     });
     // publish new item
@@ -109,6 +109,9 @@ async function searchItem(e) {
             }
         }
     }
+    // publish the search query to others under the subscription
+    const msg = new TextEncoder().encode('search:' + searchItemName + ' ' + fileID)
+    await ipfs.pubsub.publish(topic, msg)
 }
 
 // Create Store
@@ -148,6 +151,9 @@ async function createStore() {
         if (query == "score") {
 
         }
+        if (query == "search") {
+
+        }
     }
 
     await ipfs.pubsub.subscribe(topic, receiveMsg)
@@ -175,9 +181,9 @@ function updateItemCard() {
         document.getElementById("itp" + index).innerText = "No Item";
     }
     // update
-    for (let index = 0; index < Math.min(3, storeItems['items'].length); index++) {
-        document.getElementById("ith" + index).innerText = storeItems['items'][index].name;
-        document.getElementById("itp" + index).innerText = storeItems['items'][index].price;
+    for (let index = 0; index < Math.min(3, storeInfo['items'].length); index++) {
+        document.getElementById("ith" + index).innerText = storeInfo['items'][index].name;
+        document.getElementById("itp" + index).innerText = storeInfo['items'][index].price;
     }
 }
 
