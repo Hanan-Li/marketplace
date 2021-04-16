@@ -12,6 +12,7 @@ const fileAddress = __dirname + '/data/store';
 console.log('store file address:', fileAddress);
 let fileID = '';
 var storeInfo = { items: [], scores: [] };
+storeInfo['scores'] = new Map();
 let itemID = 0;
 const knownStore = new Set();
 const topic = "demazon";
@@ -82,9 +83,11 @@ async function searchItem(e) {
     for (let index = 0; index < 3; index++) {
         document.getElementById("sith" + index).innerText = "No Item";
         document.getElementById("sitp" + index).innerText = "No Item";
+        document.getElementById("sits" + index).innerText = "No Item";
     }
     const searchItemName = document.getElementById('searchItemName').value;
     console.log(searchItemName);
+    const candidate = new Set();
     let itemFound = 0;
     for (let store of knownStore) {
         console.log(store);
@@ -102,9 +105,11 @@ async function searchItem(e) {
         for (let item of items['items']) {
             console.log(item.name);
             if (item.name == searchItemName) {
+                candidate.add(store);
                 console.log('find item');
                 document.getElementById("sith" + itemFound).innerText = item.name;
-                document.getElementById("sitp" + itemFound).innerText = item.price + '\n' + store;
+                document.getElementById("sitp" + itemFound).innerText = item.price;
+                document.getElementById("sits" + itemFound).innerText = store;
                 itemFound = itemFound + 1;
             }
         }
@@ -112,6 +117,34 @@ async function searchItem(e) {
     // publish the search query to others under the subscription
     const msg = new TextEncoder().encode('search:' + searchItemName + ' ' + fileID)
     await ipfs.pubsub.publish(topic, msg)
+}
+
+// Rate Item
+async function rateItem(elem) {
+    console.log("rate item");
+    var idx = elem.value;
+    console.log(idx);
+    var item = document.getElementById("sith" + idx).innerText;
+    console.log(item);
+    var itemStore = document.getElementById("sits" + idx).innerText;
+    console.log(itemStore);
+    var rating = document.getElementById("rate" + idx).value;
+    console.log(rating);
+    if (item !== "No Item" && rating !== "") {
+        console.log("record rating");
+        if (storeInfo['scores'].has(itemStore) == false) {
+            storeInfo['scores'].set(itemStore, parseInt(rating));
+        }
+        else {
+            storeInfo['scores'].set(itemStore, storeInfo['scores'].get(itemStore) + parseInt(rating));
+        }
+        console.log(storeInfo['scores']);
+        console.log(storeInfo);
+        const fs = require('fs');
+        fs.writeFile(fileAddress, JSON.stringify(storeInfo, replacer), (err) => {
+            if (err) throw err;
+        });
+    }
 }
 
 // Create Store
@@ -184,6 +217,17 @@ function updateItemCard() {
     for (let index = 0; index < Math.min(3, storeInfo['items'].length); index++) {
         document.getElementById("ith" + index).innerText = storeInfo['items'][index].name;
         document.getElementById("itp" + index).innerText = storeInfo['items'][index].price;
+    }
+}
+
+function replacer(key, value) {
+    if (value instanceof Map) {
+        return {
+            dataType: 'Map',
+            value: Array.from(value.entries()),
+        };
+    } else {
+        return value;
     }
 }
 
