@@ -231,43 +231,6 @@ function replacer(key, value) {
     }
 }
 
-// Send request to flask server and get response back
-function test() {
-    var body = JSON.stringify({ "ID": 1 });
-    const request = net.request({
-        method: 'GET',
-        protocol: 'http:',
-        hostname: 'localhost',
-        port: 5000,
-        path: '/test'
-    })
-    request.on('response', (response) => {
-        console.log(`STATUS: ${response.statusCode}`)
-        console.log(`HEADERS: ${JSON.stringify(response.headers)}`)
-        response.on('data', (chunk) => {
-            console.log(`BODY: ${chunk}`)
-        })
-        response.on('end', () => {
-            console.log('No more data in response.')
-        })
-    });
-    request.on('finish', () => {
-        console.log('Request is Finished')
-    });
-    request.on('abort', () => {
-        console.log('Request is Aborted')
-    });
-    request.on('error', (error) => {
-        console.log(`ERROR: ${JSON.stringify(error)}`)
-    });
-    request.on('close', (error) => {
-        console.log('Last Transaction has occurred')
-    });
-    request.setHeader('Content-Type', 'application/json');
-    request.write(body, 'utf-8');
-    request.end();
-}
-
 
 // Set PeerID and other information
 window.addEventListener('DOMContentLoaded', () => {
