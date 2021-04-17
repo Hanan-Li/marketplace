@@ -1,4 +1,4 @@
-const shop = require("ownshop");
+const shop = require("./ownshop.js");
 const create = require('ipfs-http-client');
 const { globSource } = require('ipfs-http-client');
 const { CID } = require('ipfs-http-client');
@@ -8,8 +8,8 @@ const ipfs = create();
 let trustedNode = false;
 let numTrustedNodes = 2;
 let p_value = 0;
-let localPeerRating = {};
-let normalizedPeerRating = {};
+let localPeerRating = [];
+let normalizedPeerRating = [];
 let globaltrustRating = {};
 
 let peersWhoHaveBoughtFromMe = {}; // A_i
@@ -39,10 +39,10 @@ function getTrustScoreEventHandler(msg){
 
 }
 
-await ipfs.pubsub.subscribe(topic, getTrustScoreEventHandler);
+// await ipfs.pubsub.subscribe(topic, getTrustScoreEventHandler);
 
 //---------------------------------------------------------------------------------------------------------------
-intializeTrustRatings();
+// intializeTrustRatings();
 
 function intializeTrustRatings(){
     if(trustedNode){
@@ -74,6 +74,9 @@ async function getInitialTrustRatingFromClients(){
 }
 
 async function calculateRating(){
+    // compute local c_ij
+    await getPeerRating();
+    
     await getInitialTrustRatingFromClients();
     await sleep(2000);
     while(true){
@@ -102,4 +105,32 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-calculateRating();
+// compute c_ij
+async function getPeerRating() {
+    localPeerRating = [];
+    normalizedPeerRating = [];
+    await fs.readFile(fileAddress, 'utf8', function(err, data){
+        // Display the file content
+        // console.log(data);
+        localPeerRating = JSON.parse(data).scores;
+        console.log("local peer rating: ", localPeerRating);
+        if (localPeerRating.length > 0) {
+            let sum = Object.values(localPeerRating).map( el => el.score ).reduce((a, b) => a + b);       
+            for (let peer of localPeerRating) {
+                normalizedPeerRating.push({store: peer.store, score: peer.score / sum});
+            }
+        }
+        // else { // node i is inactive/new
+        //     for (let peer of shop.knownStore) {
+        //         normalizedPeerRating.push({store: peer, score: 1 / shop.knownStore.length});
+        //     }
+        // }
+        console.log("normalized peer rating: ", normalizedPeerRating);
+    });
+}
+
+// calculateRating();
+
+module.exports={
+    calculateRating
+};

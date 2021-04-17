@@ -1,3 +1,4 @@
+const {calculateRating} = require('./trust.js');
 // Javascript for main page
 const electron = require('electron');
 // Importing the net Module from electron remote
@@ -10,7 +11,7 @@ const fs = require('fs');
 const ipfs = create();
 let PeerID = '';
 const fileAddress = __dirname + '/data/store';
-console.log('store file address:', fileAddress);
+// console.log('store file address:', fileAddress);
 let fileID = '';
 var storeInfo = { items: [], scores: [] };
 let itemID = 0;
@@ -35,8 +36,8 @@ async function addNewItem(e) {
     e.preventDefault();
     const itemName = document.getElementById('ItemName').value;
     const itemPrice = document.getElementById('ItemPrice').value;
-    console.log(itemName);
-    console.log(itemPrice);
+    // console.log(itemName);
+    // console.log(itemPrice);
 
     // Add new item to store file
     storeInfo['items'].push({ id: itemID, name: itemName, price: itemPrice });
@@ -52,7 +53,7 @@ async function addNewItem(e) {
     const msg = new TextEncoder().encode('publish:' + itemName + ' ' + itemPrice + ' ' + fileID)
     await ipfs.pubsub.publish(topic, msg)
     // msg was broadcasted
-    console.log(`published to ${topic}`)
+    // console.log(`published to ${topic}`)
 }
 
 // Search Item
@@ -65,11 +66,15 @@ async function searchItem(e) {
         document.getElementById("sits" + index).innerText = "No Item";
     }
     const searchItemName = document.getElementById('searchItemName').value;
-    console.log(searchItemName);
+    // console.log(searchItemName);
     const candidate = new Set();
     let itemFound = 0;
+
+    // get rating
+    calculateRating();
+
     for (let store of knownStore) {
-        console.log(store);
+        // console.log(store);
         // console.log(ipfs.cat('/ipns/' + store));
         // console.log(ipfs.name.resolve('/ipns/' + store));
         // for await (const name of ipfs.name.resolve('/ipns/' + store)) {
@@ -80,12 +85,12 @@ async function searchItem(e) {
             chunks.push(chunk);
         }
         const items = JSON.parse(Buffer.concat(chunks).toString());
-        console.log(items)
+        // console.log(items)
         for (let item of items['items']) {
-            console.log(item.name);
+            // console.log(item.name);
             if (item.name == searchItemName) {
                 candidate.add(store);
-                console.log('find item');
+                // console.log('find item');
                 document.getElementById("sith" + itemFound).innerText = item.name;
                 document.getElementById("sitp" + itemFound).innerText = item.price;
                 document.getElementById("sits" + itemFound).innerText = store;
@@ -102,15 +107,15 @@ async function searchItem(e) {
 async function rateItem(elem) {
     console.log("rate item");
     var idx = elem.value;
-    console.log(idx);
+    // console.log(idx);
     var item = document.getElementById("sith" + idx).innerText;
-    console.log(item);
+    // console.log(item);
     var itemStore = document.getElementById("sits" + idx).innerText;
-    console.log(itemStore);
+    // console.log(itemStore);
     var rating = document.getElementById("rate" + idx).value;
-    console.log(rating);
+    // console.log(rating);
     if (item !== "No Item" && rating !== "") {
-        console.log("record rating");
+        // console.log("record rating");
         const found = storeInfo['scores'].find(element => element.store === itemStore);
         if (found == undefined) {
             storeInfo['scores'].push({store: itemStore, score: parseInt(rating)})
@@ -118,8 +123,8 @@ async function rateItem(elem) {
         else {
             found['score'] += parseInt(rating);
         }
-        console.log(storeInfo['scores']);
-        console.log(storeInfo);
+        // console.log(storeInfo['scores']);
+        // console.log(storeInfo);
         const fs = require('fs');
         fs.writeFile(fileAddress, JSON.stringify(storeInfo), (err) => {
             if (err) throw err;
@@ -139,25 +144,25 @@ async function createStore() {
     publishIPNS();
 
     // Receive msg from subscription
-    console.log("receive pubsub msg");
     const receiveMsg = (msg) => {
-        console.log(msg);
-        console.log(ab2str(msg.data));
-        console.log("received from:", msg.from);
+        console.log("receive pubsub msg", msg);
+        // console.log(msg);
+        // console.log(ab2str(msg.data));
+        // console.log("received from:", msg.from);
 
         // handle the msg
         let data = ab2str(msg.data);
         let idx = data.indexOf(":");
         let query = data.substring(0, idx);
         let arg = data.substring(idx + 1);
-        console.log(query);
-        console.log(arg);
+        // console.log(query);
+        // console.log(arg);
         var args = arg.split(" ");
         if (query == "publish") {
             // TODO: update display list
             console.log("new item listed.");
             // add new store to store set
-            console.log(args[2]);
+            // console.log(args[2]);
             knownStore.add(args[2]);
         }
         // TODO: handle other queries like transaction?
@@ -176,10 +181,10 @@ async function createStore() {
 async function publishIPNS() {
     // add changed store file
     const storeFile = await ipfs.add(globSource(fileAddress, { recursive: false, pin: false }));
-    console.log(`${storeFile.cid}`)
+    // console.log(`${storeFile.cid}`)
     // publish
     const publishFile = await ipfs.name.publish(`/ipfs/${storeFile.cid}`);
-    console.log(`${publishFile.name}`);
+    console.log("published IPNS: ", `${publishFile.name}`);
     // remove old pinned store file
     // ipfs.pin.rm(`${storeFile.cid}`);
     fileID = `${publishFile.name}`;
@@ -199,7 +204,7 @@ function replacer(key, value) {
 
 function updateItems() {
     
-    console.log("shit");
+    // console.log("shit");
     $('#own_items').empty();
     for(let i = 0; i < storeInfo['items'].length; i++){
         let id = storeInfo['items'][i]['id'];
@@ -222,9 +227,9 @@ async function readStoreFile() {
     await fs.readFile(fileAddress, 'utf8', function(err, data){
       
         // Display the file content
-        console.log(data);
+        // console.log(data);
         storeInfo = JSON.parse(data);
-        console.log(storeInfo);
+        // console.log(storeInfo);
         updateItems();
     });
 }
