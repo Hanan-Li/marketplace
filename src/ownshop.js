@@ -18,7 +18,6 @@ let itemID = 0;
 const knownStore = new Set();
 const topic = "demazon";
 // let DataID = '';
-ipfs.config.getAll();
 
 createStore();
 

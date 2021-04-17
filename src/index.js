@@ -60,3 +60,17 @@ app.on('activate', () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
+const create = require('ipfs-http-client');
+
+const { globSource } = require('ipfs-http-client');
+const { CID } = require('ipfs-http-client');
+const fs = require('fs');
+const ipfs = create();
+global.PeerID = '';
+
+async function getPeerId() {
+  const config = await ipfs.config.getAll();
+  global.PeerID = config['Identity']['PeerID'];
+}
+
+getPeerId();
