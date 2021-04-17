@@ -13,7 +13,6 @@ const fileAddress = __dirname + '/data/store';
 console.log('store file address:', fileAddress);
 let fileID = '';
 var storeInfo = { items: [], scores: [] };
-storeInfo['scores'] = new Map();
 let itemID = 0;
 const knownStore = new Set();
 const topic = "demazon";
@@ -112,16 +111,17 @@ async function rateItem(elem) {
     console.log(rating);
     if (item !== "No Item" && rating !== "") {
         console.log("record rating");
-        if (storeInfo['scores'].has(itemStore) == false) {
-            storeInfo['scores'].set(itemStore, parseInt(rating));
+        const found = storeInfo['scores'].find(element => element.store === itemStore);
+        if (found == undefined) {
+            storeInfo['scores'].push({store: itemStore, score: parseInt(rating)})
         }
         else {
-            storeInfo['scores'].set(itemStore, storeInfo['scores'].get(itemStore) + parseInt(rating));
+            found['score'] += parseInt(rating);
         }
         console.log(storeInfo['scores']);
         console.log(storeInfo);
         const fs = require('fs');
-        fs.writeFile(fileAddress, JSON.stringify(storeInfo, replacer), (err) => {
+        fs.writeFile(fileAddress, JSON.stringify(storeInfo), (err) => {
             if (err) throw err;
         });
     }
@@ -238,7 +238,7 @@ window.addEventListener('DOMContentLoaded', () => {
     getPeerId().then(result => {
         replaceText('PeerId', PeerID);
     });
-    readStoreFile();
+    // readStoreFile();
 })
 
 module.exports={

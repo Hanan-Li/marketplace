@@ -16,7 +16,7 @@ Built using Electron and js-ipfs http client
 - ipfs CLI
 ```bash
 # in one terminal: start ipfs with pubsub enabled
-ipfs daemon ipfs daemon --enable-pubsub-experiment
+ipfs daemon --enable-pubsub-experiment
 
 # in a new terminal: subscribe to topic "demazon"
 ipfs pubsub sub demazon

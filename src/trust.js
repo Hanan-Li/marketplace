@@ -12,8 +12,8 @@ let localPeerRating = {};
 let normalizedPeerRating = {};
 let globaltrustRating = {};
 
-let peersWhoHaveBoughtFromMe = {};
-let peersWhoIHaveBoughtFrom = {};
+let peersWhoHaveBoughtFromMe = {}; // A_i
+let peersWhoIHaveBoughtFrom = {}; // B_i
 
 let alphavalue = 0.2;
 let topic = shop.fileID + "/handle_trust";
