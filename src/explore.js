@@ -1,5 +1,3 @@
-const base = require("./base.js");
-let PeerID = '';
-base.getPeerId().then(result => {
-    PeerID = result;
-});
+const { ipcRenderer } = require('electron')
+console.log(ipcRenderer.sendSync('getPeerId', 'ping')) // prints "pong"
+console.log(ipcRenderer.sendSync('getStoreInfo', 'ping'))

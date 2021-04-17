@@ -1,35 +1,13 @@
 // Javascript for main page
-const electron = require('electron');
-// Importing the net Module from electron remote
-const net = electron.remote.net;
+const { ipcRenderer } = require('electron');// Importing the net Module from electron remote
 const $ = require('jquery');
-const create = require('ipfs-http-client');
-const { globSource } = require('ipfs-http-client');
-const { CID } = require('ipfs-http-client');
 const fs = require('fs');
-const ipfs = create();
 let PeerID = '';
-const fileAddress = __dirname + '/data/store';
-console.log('store file address:', fileAddress);
-let fileID = '';
 var storeInfo = { items: [], scores: [] };
 storeInfo['scores'] = new Map();
 let itemID = 0;
-const knownStore = new Set();
-const topic = "demazon";
 // let DataID = '';
 
-createStore();
-
-// Function to get Peer ID
-async function getPeerId() {
-    const config = await ipfs.config.getAll();
-    PeerID = config['Identity']['PeerID'];
-}
-
-function ab2str(buf) {
-    return String.fromCharCode.apply(null, new Uint8Array(buf));
-}
 
 // Add Item to IPFS
 async function addNewItem(e) {
@@ -40,20 +18,13 @@ async function addNewItem(e) {
     console.log(itemPrice);
 
     // Add new item to store file
-    storeInfo['items'].push({ id: itemID, name: itemName, price: itemPrice });
+    let new_item = { id: itemID, name: itemName, price: itemPrice };
+    storeInfo = ipcRenderer.sendSync('addNewItem', new_item);
+    storeInfo['items'].push();
     itemID = itemID + 1;
-    fs.writeFile(fileAddress, JSON.stringify(storeInfo), (err) => {
-        if (err) throw err;
-    });
-    // publish new item
-    publishIPNS();
+    
     // update item card
-    updateItems();
-    // publish the newly added item to others under the subscription
-    const msg = new TextEncoder().encode('publish:' + itemName + ' ' + itemPrice + ' ' + fileID)
-    await ipfs.pubsub.publish(topic, msg)
-    // msg was broadcasted
-    console.log(`published to ${topic}`)
+    updateItems(storeInfo);
 }
 
 // Search Item
@@ -127,64 +98,7 @@ async function rateItem(elem) {
     }
 }
 
-// Create Store
-async function createStore() {
-    // Create initial store file with ipns
-    console.log('initialize store file');
-    // Create file store if not exist under data/ folder
-    // const fs = require('fs');
-    // fs.writeFile(fileAddress, '', (err) => {
-    //     if (err) throw err;
-    // });
-    publishIPNS();
 
-    // Receive msg from subscription
-    console.log("receive pubsub msg");
-    const receiveMsg = (msg) => {
-        console.log(msg);
-        console.log(ab2str(msg.data));
-        console.log("received from:", msg.from);
-
-        // handle the msg
-        let data = ab2str(msg.data);
-        let idx = data.indexOf(":");
-        let query = data.substring(0, idx);
-        let arg = data.substring(idx + 1);
-        console.log(query);
-        console.log(arg);
-        var args = arg.split(" ");
-        if (query == "publish") {
-            // TODO: update display list
-            console.log("new item listed.");
-            // add new store to store set
-            console.log(args[2]);
-            knownStore.add(args[2]);
-        }
-        // TODO: handle other queries like transaction?
-        if (query == "score") {
-
-        }
-        if (query == "search") {
-
-        }
-    }
-
-    await ipfs.pubsub.subscribe(topic, receiveMsg)
-    console.log(`subscribed to ${topic}`);
-}
-
-async function publishIPNS() {
-    // add changed store file
-    const storeFile = await ipfs.add(globSource(fileAddress, { recursive: false, pin: false }));
-    console.log(`${storeFile.cid}`)
-    // publish
-    const publishFile = await ipfs.name.publish(`/ipfs/${storeFile.cid}`);
-    console.log(`${publishFile.name}`);
-    // remove old pinned store file
-    // ipfs.pin.rm(`${storeFile.cid}`);
-    fileID = `${publishFile.name}`;
-    // console.log(fileID);
-}
 
 function replacer(key, value) {
     if (value instanceof Map) {
@@ -197,7 +111,7 @@ function replacer(key, value) {
     }
 }
 
-function updateItems() {
+function updateItems(storeInfo) {
     
     console.log("shit");
     $('#own_items').empty();
@@ -218,16 +132,6 @@ function updateItems() {
     }
 }
 
-async function readStoreFile() {
-    await fs.readFile(fileAddress, 'utf8', function(err, data){
-      
-        // Display the file content
-        console.log(data);
-        storeInfo = JSON.parse(data);
-        console.log(storeInfo);
-        updateItems();
-    });
-}
 
 // Set PeerID and other information
 window.addEventListener('DOMContentLoaded', () => {
@@ -235,12 +139,9 @@ window.addEventListener('DOMContentLoaded', () => {
         const element = document.getElementById(selector)
         if (element) element.innerText = text
     }
-    getPeerId().then(result => {
-        replaceText('PeerId', PeerID);
-    });
-    readStoreFile();
+    PeerID = ipcRenderer.sendSync('getPeerId', 'ping');
+    replaceText('PeerId', PeerID);
+    storeInfo = ipcRenderer.sendSync('getStoreInfo', 'ping');
+    itemID = storeInfo["items"].length;
+    updateItems(storeInfo);
 })
-
-module.exports={
-    PeerID, storeInfo, fileID, knownStore
-}

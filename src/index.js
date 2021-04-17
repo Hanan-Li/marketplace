@@ -60,17 +60,179 @@ app.on('activate', () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
-const create = require('ipfs-http-client');
 
+//Setting up ipfs and other states for application
+const { ipcMain } = require('electron');
+// IPFS Includes
+const create = require('ipfs-http-client');
 const { globSource } = require('ipfs-http-client');
 const { CID } = require('ipfs-http-client');
 const fs = require('fs');
 const ipfs = create();
-global.PeerID = '';
 
-async function getPeerId() {
-  const config = await ipfs.config.getAll();
-  global.PeerID = config['Identity']['PeerID'];
+// Variables
+const fileAddress = __dirname + '/data/store';
+let PeerID = '';
+var storeInfo = { items: [], scores: [] };
+storeInfo['scores'] = new Map();
+let IPNSNode = '';
+let registerStoreTopic = 'registerDemazonStore';
+let selfStoreTopic = '';
+
+//Trusted Node Variables
+let trustedNode = false;
+let allStores = { stores: [] };
+let allstoresFileAddr = __dirname + '/data/allStores';
+let allstoreIPNSNode = '';
+
+// Read Stores Metadata from file system-----------------------------------------------------
+async function readStoreFile() {
+  await fs.readFile(fileAddress, 'utf8', function(err, data){
+    
+      // Display the file content
+      storeInfo = JSON.parse(data);
+  });
 }
 
-getPeerId();
+async function readAllStoreFile() {
+  await fs.readFile(allstoresFileAddr, 'utf8', function(err, data){
+    
+    // Display the file content
+    allStores = JSON.parse(data);
+  });
+}
+
+// Some Utility Functions--------------------------------------------------------------------
+async function getPeerId() {
+  const config = await ipfs.config.getAll();
+  PeerID = config['Identity']['PeerID'];
+}
+
+function ab2str(buf) {
+  return String.fromCharCode.apply(null, new Uint8Array(buf));
+}
+
+async function publishIPNS(fileAddr) {
+  // add changed store file
+  const storeFile = await ipfs.add(globSource(fileAddr, { recursive: false, pin: false }));
+  console.log(`${storeFile.cid}`)
+  // publish
+  const publishFile = await ipfs.name.publish(`/ipfs/${storeFile.cid}`);
+  // remove old pinned store file
+  // ipfs.pin.rm(`${storeFile.cid}`);
+  IPNSNode = `${publishFile.name}`;
+  console.log(IPNSNode);
+  let msg = { "IPNS": IPNSNode};
+  return msg;
+}
+
+// Create Store or Register Stores depending on if trusted node-------------------------------
+async function createStore() {
+  // Create initial store file with ipns
+  console.log('initialize store file');
+  return await publishIPNS(fileAddress);
+}
+
+// Trusted Node handling registering Stores
+async function handleRegisterStore(){
+   const receiveMsg = (msg) => {
+      console.log(msg);
+      console.log(ab2str(msg.data));
+      console.log("received from:", msg.from);
+      let peerId = msg.from;
+      // handle the msg
+      let data = ab2str(msg.data);
+      let query = JSON.parse(data);
+      console.log(query);
+      storeInfo = {"peerID": peerId, "IPNS": query["IPNS"]};
+      let exists = false;
+      for(let i = 0; i < allStores['stores'].length; i++){
+        if(storeInfo['peerID'] === allStores['stores']['peerID']){
+          exists = true;
+        }
+      }
+      if(!exists){
+        allStores['stores'].push(storeInfo);
+        fs.writeFile(allstoresFileAddr, JSON.stringify(allStores), (err) => {
+          if (err) throw err;
+        });
+        publishIPNS(allstoresFileAddr);
+      }
+  }
+
+  await ipfs.pubsub.subscribe(registerStoreTopic, receiveMsg);
+}
+
+// Store Node handling receiving Buy requests
+async function handleReceiveStoreTransaction(){
+  const receiveMsg = (msg) => {
+    console.log(msg);
+    console.log(ab2str(msg.data));
+    console.log("received from:", msg.from);
+    let peerId = msg.from;
+    // handle the msg
+    let data = ab2str(msg.data);
+    let query = JSON.parse(data);
+    // console.log(query);
+    // storeInfo = {"peerID": peerId, "IPNS": query["IPNS"]}
+    // allStores['stores'].push(storeInfo);
+    // fs.writeFile(allstoresFileAddr, JSON.stringify(allStores), (err) => {
+    //   if (err) throw err;
+    // });
+    // publishIPNS(fileAddress);
+  }
+
+  await ipfs.pubsub.subscribe(selfStoreTopic, receiveMsg);
+}
+
+
+async function initialize(){
+  getPeerId();
+  if(trustedNode){
+    // Read Files for all stores
+    await readAllStoreFile();
+    // Register handler for receiving new stores registered.
+    await handleRegisterStore();
+  }
+  else{
+    await readStoreFile();
+    msg = await createStore();
+    console.log(msg);
+    await ipfs.pubsub.publish(registerStoreTopic, JSON.stringify(msg));
+    selfStoreTopic = msg["IPNS"];
+    console.log(selfStoreTopic); 
+    await handleReceiveStoreTransaction();
+  }
+}
+// Own Shop Functions---------------------------------------------------------
+function addNewItem(newItem){
+  storeInfo['items'].push(newItem);
+  fs.writeFile(fileAddress, JSON.stringify(storeInfo), (err) => {
+    if (err) throw err;
+  });
+  publishIPNS(fileAddress);
+}
+initialize();
+
+// FUCK SEARCH
+//-----------------------------------------------------------------------------
+ipcMain.on('getIPNSId', (event, arg) => {
+  console.log(arg) // prints "ping"
+  event.returnValue = IPNSNode;
+})
+
+ipcMain.on('getPeerId', (event, arg) => {
+  console.log(arg) // prints "ping"
+  event.returnValue = PeerID;
+})
+
+ipcMain.on('getStoreInfo', (event, arg) => {
+  console.log(arg) // prints "ping"
+  event.returnValue = storeInfo;
+})
+
+ipcMain.on('addNewItem', (event, arg) => {
+  console.log(arg) // prints "ping"
+  addNewItem(arg);
+  event.returnValue = storeInfo;
+})
