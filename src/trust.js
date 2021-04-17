@@ -76,7 +76,7 @@ async function getInitialTrustRatingFromClients(){
 async function calculateRating(){
     // compute local c_ij
     await getPeerRating();
-    
+
     await getInitialTrustRatingFromClients();
     await sleep(2000);
     while(true){
@@ -98,6 +98,7 @@ async function calculateRating(){
         await sleep(5000);
         
     }
+    shop.complete_rating = true;
 }
 
 

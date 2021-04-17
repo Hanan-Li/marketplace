@@ -16,8 +16,10 @@ let fileID = '';
 var storeInfo = { items: [], scores: [] };
 let itemID = 0;
 const knownStore = new Set();
+const customer = new Set();
 const topic = "demazon";
 // let DataID = '';
+let complete_rating = false;
 
 createStore();
 
@@ -71,7 +73,10 @@ async function searchItem(e) {
     let itemFound = 0;
 
     // get rating
-    calculateRating();
+    const msg = new TextEncoder().encode('search:' + fileID)
+    await ipfs.pubsub.publish(topic, msg);
+    while (complete_rating == false) {}
+    complete_rating = false;
 
     for (let store of knownStore) {
         // console.log(store);
@@ -99,8 +104,8 @@ async function searchItem(e) {
         }
     }
     // publish the search query to others under the subscription
-    const msg = new TextEncoder().encode('search:' + searchItemName + ' ' + fileID)
-    await ipfs.pubsub.publish(topic, msg)
+    // const msg = new TextEncoder().encode('search:' + searchItemName + ' ' + fileID)
+    // await ipfs.pubsub.publish(topic, msg)
 }
 
 // Rate Item
@@ -167,10 +172,17 @@ async function createStore() {
         }
         // TODO: handle other queries like transaction?
         if (query == "score") {
+            if (arg[1] == "") {
 
+            }
         }
         if (query == "search") {
-
+            calculateRating();
+        }
+        if (query == "buy") {
+            if (arg[0] == fileID) {
+                customer.add(arg[1]);
+            }
         }
     }
 
@@ -234,6 +246,13 @@ async function readStoreFile() {
     });
 }
 
+async function buyItem(element) {
+    console.log("***buy item");
+    var itemStore = document.getElementById("sits" + idx).innerText;
+    const msg = new TextEncoder().encode('buy:' + itemStore + ' ' + fileID)
+    await ipfs.pubsub.publish(topic, msg)
+}
+
 // Set PeerID and other information
 window.addEventListener('DOMContentLoaded', () => {
     const replaceText = (selector, text) => {
@@ -247,5 +266,5 @@ window.addEventListener('DOMContentLoaded', () => {
 })
 
 module.exports={
-    PeerID, storeInfo, fileID, knownStore
+    PeerID, storeInfo, fileID, knownStore, complete_rating, customer
 }
