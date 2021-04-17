@@ -2,10 +2,11 @@
 const electron = require('electron');
 // Importing the net Module from electron remote
 const net = electron.remote.net;
-
+const $ = require('jquery');
 const create = require('ipfs-http-client');
 const { globSource } = require('ipfs-http-client');
 const { CID } = require('ipfs-http-client');
+const fs = require('fs');
 const ipfs = create();
 let PeerID = '';
 const fileAddress = __dirname + '/data/store';
@@ -42,33 +43,13 @@ async function addNewItem(e) {
     // Add new item to store file
     storeInfo['items'].push({ id: itemID, name: itemName, price: itemPrice });
     itemID = itemID + 1;
-    const fs = require('fs');
     fs.writeFile(fileAddress, JSON.stringify(storeInfo), (err) => {
         if (err) throw err;
     });
     // publish new item
     publishIPNS();
     // update item card
-    updateItemCard();
-
-    // Write file and add to node
-    // console.log(__dirname + '/data/test');
-    // const fs = require('fs');
-    // let data = "hello";
-    // fs.writeFile(__dirname + '/data/test', data, (err) => {
-    //     if (err) throw err;
-    // });
-    // if (DataID) {
-    //     const oldFile = ipfs.pin.rm(DataID);
-    // }
-    // const newFile = ipfs.add(globSource(__dirname + '/data/', { recursive: true }));
-    // newFile.then(function (val) {
-    //     console.log(val['cid']['string']);
-    //     DataID = val['cid']['string'];
-    // });
-
-    // test();
-
+    updateItems();
     // publish the newly added item to others under the subscription
     const msg = new TextEncoder().encode('publish:' + itemName + ' ' + itemPrice + ' ' + fileID)
     await ipfs.pubsub.publish(topic, msg)
@@ -206,20 +187,6 @@ async function publishIPNS() {
     // console.log(fileID);
 }
 
-function updateItemCard() {
-    // update item card, only keep first three items for now
-    // clean up
-    for (let index = 0; index < 3; index++) {
-        document.getElementById("ith" + index).innerText = "No Item";
-        document.getElementById("itp" + index).innerText = "No Item";
-    }
-    // update
-    for (let index = 0; index < Math.min(3, storeInfo['items'].length); index++) {
-        document.getElementById("ith" + index).innerText = storeInfo['items'][index].name;
-        document.getElementById("itp" + index).innerText = storeInfo['items'][index].price;
-    }
-}
-
 function replacer(key, value) {
     if (value instanceof Map) {
         return {
@@ -231,6 +198,37 @@ function replacer(key, value) {
     }
 }
 
+function updateItems() {
+    
+    console.log("shit");
+    $('#own_items').empty();
+    for(let i = 0; i < storeInfo['items'].length; i++){
+        let id = storeInfo['items'][i]['id'];
+        let name = storeInfo['items'][i]['name'];
+        let price = storeInfo['items'][i]['price'];
+        let oneItem = `
+        <div class="card">
+        <!-- <img src="..." class="card-img-top" alt="..."> -->
+        <div class="card-body">
+            <h5 class="card-title" id="ith${i}">${name}</h5>
+            <p class="card-text" id="itp${i}">$${price}</p>
+            <a href="#" class="btn btn-primary">Get Bids</a>
+        </div>
+        </div>`;
+        $('#own_items').append(oneItem);
+    }
+}
+
+async function readStoreFile() {
+    await fs.readFile(fileAddress, 'utf8', function(err, data){
+      
+        // Display the file content
+        console.log(data);
+        storeInfo = JSON.parse(data);
+        console.log(storeInfo);
+        updateItems();
+    });
+}
 
 // Set PeerID and other information
 window.addEventListener('DOMContentLoaded', () => {
@@ -241,4 +239,9 @@ window.addEventListener('DOMContentLoaded', () => {
     getPeerId().then(result => {
         replaceText('PeerId', PeerID);
     });
+    readStoreFile();
 })
+
+module.exports={
+    PeerID, storeInfo, fileID, knownStore
+}
