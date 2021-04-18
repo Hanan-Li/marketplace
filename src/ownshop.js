@@ -1,4 +1,4 @@
-const {calculateRating} = require('./trust.js');
+const { calculateRating } = require('./trust.js');
 // Javascript for main page
 const electron = require('electron');
 // Importing the net Module from electron remote
@@ -17,6 +17,11 @@ var storeInfo = { items: [], scores: [] };
 let itemID = 0;
 const knownStore = new Set();
 const customer = new Set();
+var trustScore = []; // t
+var peerScore = []; // c
+var completePeer = []; // complete t
+var globalScore = 0; // my global t value
+var scoreResults = [];
 const topic = "demazon";
 // let DataID = '';
 let complete_rating = false;
@@ -75,8 +80,9 @@ async function searchItem(e) {
     // get rating
     const msg = new TextEncoder().encode('search:' + fileID)
     await ipfs.pubsub.publish(topic, msg);
-    while (complete_rating == false) {}
-    complete_rating = false;
+    await calculateRating();
+    // while (complete_rating == false) {}
+    // complete_rating = false;
 
     for (let store of knownStore) {
         // console.log(store);
@@ -123,7 +129,7 @@ async function rateItem(elem) {
         // console.log("record rating");
         const found = storeInfo['scores'].find(element => element.store === itemStore);
         if (found == undefined) {
-            storeInfo['scores'].push({store: itemStore, score: parseInt(rating)})
+            storeInfo['scores'].push({ store: itemStore, score: parseInt(rating) })
         }
         else {
             found['score'] += parseInt(rating);
@@ -172,12 +178,33 @@ async function createStore() {
         }
         // TODO: handle other queries like transaction?
         if (query == "score") {
-            if (arg[1] == "") {
-
+            if (args.length > 3 && arg[3] == 'complete') { // 'complete'
+                scoreResults.push({ peer: arg[1], score: parseInt(arg[2]) });
+            }
+            if (arg[0] == 'init') {
+                if (arg[2] == fileID) {
+                    peerScore.push({ peer: arg[1], score: parseInt(arg[3]) });
+                }
+            }
+            else {
+                if (customer.has(arg[1]) == true) {
+                    if (args.length > 3 && arg[3] == 'complete') { // 'complete'
+                        completePeer.push({ peer: arg[1], score: parseInt(arg[2]) });
+                    }
+                    const found = trustScore.find(element => element.round === parseInt(arg[0]));
+                    if (found == undefined) {
+                        trustScore.push({ round: parseInt(arg[0]), t: [{ peer: arg[1], score: parseInt(arg[2]) }] })
+                    }
+                    else {
+                        found.t.push({ peer: arg[1], score: parseInt(arg[2]) });
+                    }
+                }
             }
         }
         if (query == "search") {
-            calculateRating();
+            if (arg[0] != fileID) {
+                calculateRating();
+            }
         }
         if (query == "buy") {
             if (arg[0] == fileID) {
@@ -215,10 +242,10 @@ function replacer(key, value) {
 }
 
 function updateItems() {
-    
+
     // console.log("shit");
     $('#own_items').empty();
-    for(let i = 0; i < storeInfo['items'].length; i++){
+    for (let i = 0; i < storeInfo['items'].length; i++) {
         let id = storeInfo['items'][i]['id'];
         let name = storeInfo['items'][i]['name'];
         let price = storeInfo['items'][i]['price'];
@@ -236,8 +263,8 @@ function updateItems() {
 }
 
 async function readStoreFile() {
-    await fs.readFile(fileAddress, 'utf8', function(err, data){
-      
+    await fs.readFile(fileAddress, 'utf8', function (err, data) {
+
         // Display the file content
         // console.log(data);
         storeInfo = JSON.parse(data);
@@ -265,6 +292,6 @@ window.addEventListener('DOMContentLoaded', () => {
     // readStoreFile();
 })
 
-module.exports={
-    PeerID, storeInfo, fileID, knownStore, complete_rating, customer
+module.exports = {
+    PeerID, storeInfo, fileID, knownStore, complete_rating, customer, trustScore, peerScore, globalScore, completePeer
 }
