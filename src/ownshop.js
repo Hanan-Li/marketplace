@@ -26,7 +26,7 @@ var peerScore = []; // c: [{ peer: , score: }]
 var completePeer = []; // complete t: [{ peer: , score: }]
 var globalScore = 0; // my global t value
 var scoreResults = []; // [{ peer: , score: }]
-const topic = "demazon";
+const topic = "demazon1";
 
 // Function to get Peer ID
 async function getPeerId() {
@@ -127,7 +127,6 @@ async function rateItem(elem) {
     }
 }
 
-// Create Store
 async function createStore() {
     // Create initial store file with ipns
     console.log('initialize store file');
@@ -144,10 +143,9 @@ async function createStore() {
 
 // Receive msg from subscription
 function receiveMsg(msg) {
-    console.log("receive pubsub msg: ", msg);
-
     // parse the msg
     let data = ab2str(msg.data);
+    console.log("receive pubsub msg: ", data);
     let idx = data.indexOf(":");
     let query = data.substring(0, idx);
     let arg = data.substring(idx + 1);
@@ -234,15 +232,15 @@ function updateItems() {
 async function readStoreFile() {
     await fs.readFile(fileAddress, 'utf8', function (err, data) {
         // Display the file content
-        console.log(data);
+        // console.log(data);
         storeInfo = JSON.parse(data);
-        // console.log(storeInfo);
+        console.log("load store info: ", storeInfo);
         updateItems();
     });
 }
 
 async function buyItem(element) {
-    console.log("buy item");
+    console.log("***buy item");
     var itemStore = document.getElementById("sits" + idx).innerText;
     const msg = new TextEncoder().encode(`buy:${itemStore} ${fileID}`)
     await ipfs.pubsub.publish(topic, msg)
@@ -265,14 +263,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
 //-----------------------------------trust algorithm-------------------------------------------------------
 // Based on Algorithm 3 of EigenTrust Paper
-let localPeerRating = []; // s_ij: [{ store: , score: }]
-let normalizedPeerRating = []; // c_ij: [{ store: , score: }]
-let globaltrustRating = {}; // t: {}
+var localPeerRating = []; // s_ij: [{ store: , score: }]
+var normalizedPeerRating = []; // c_ij: [{ store: , score: }]
+var globaltrustRating = {}; // t: {}
 
-let peersWhoHaveBoughtFromMe = {}; // A_i
-let peersWhoIHaveBoughtFrom = {}; // B_i
+var peersWhoHaveBoughtFromMe = {}; // A_i
+var peersWhoIHaveBoughtFrom = {}; // B_i
 
-let alphaValue = 0.2;
+var alphaValue = 0.2;
 
 async function calculateRating() {
     console.log(`${fileID} start calculate rating...`);
@@ -345,7 +343,7 @@ async function getPeerRating() {
     console.log("***get peer rating");
     localPeerRating = storeInfo.scores;
     normalizedPeerRating = [];
-    console.log("Local peer rating: ", localPeerRating);
+    console.log("Local peer rating length and content: ", localPeerRating.length, localPeerRating);
     if (localPeerRating.length > 0) {
         let sum = Object.values(localPeerRating).map(el => el.score).reduce((a, b) => a + b);
         for (let peer of localPeerRating) {
@@ -357,5 +355,5 @@ async function getPeerRating() {
     //         normalizedPeerRating.push({store: peer, score: 1 / knownStore.length});
     //     }
     // }
-    console.log("Normalized peer rating: ", normalizedPeerRating);
+    console.log("Normalized peer rating length and content: ", normalizedPeerRating.length, normalizedPeerRating);
 }
