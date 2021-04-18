@@ -80,7 +80,7 @@ let registerStoreTopic = 'registerDemazonStore';
 let selfStoreTopic = '';
 
 //Trusted Node Variables
-let trustedNode = false;
+let trustedNode = true;
 let allStores = { stores: [] };
 let allstoresFileAddr = __dirname + '/data/allStores';
 let allstoreIPNSNode = '';
@@ -147,7 +147,7 @@ async function handleRegisterStore(){
       storeInfo = {"peerID": peerId, "IPNS": query["IPNS"]};
       let exists = false;
       for(let i = 0; i < allStores['stores'].length; i++){
-        if(storeInfo['peerID'] === allStores['stores']['peerID']){
+        if(peerId === allStores['stores'][i]['peerID']){
           exists = true;
         }
       }
@@ -158,6 +158,7 @@ async function handleRegisterStore(){
         });
         publishIPNS(allstoresFileAddr);
       }
+      publishIPNS(allstoresFileAddr);
   }
 
   await ipfs.pubsub.subscribe(registerStoreTopic, receiveMsg);
