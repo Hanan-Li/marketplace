@@ -1,5 +1,4 @@
 // Javascript for main page
-const { calculateRating } = require('./trust.js');
 const electron = require('electron');
 const net = electron.remote.net;
 const $ = require('jquery');
@@ -10,12 +9,17 @@ const ipfs = create();
 
 let PeerID = '';
 const fileAddress = __dirname + '/data/store';
-// console.log('store file address:', fileAddress);
 
-let fileID = ''; // my store id
-var storeInfo = { items: [], scores: [] }; // items: [{ id: , name: , price: }], scores: [{ store: , score: }]
+// for debug
+let fileID = 'k51qzi5uqu5dky24v2pnpcotcpa57anterwpcrtv0wxyadwrl8by1afehya3kt'; // my store id
+
+var storeInfo = { items: [], scores: []}; // items: [{ id: , name: , price: }], scores: [{ store: , score: }]
 let itemID = 0; // for counting items in my store
 const knownStore = new Set();
+
+// for debug
+knownStore.add("k51qzi5uqu5dh5me6pibzdhyxkxcl1g1k7v5m8hsfbgclp3aotogmybn2yk9oz");
+
 const customer = new Set(); // peers who have bought from me
 var trustScore = []; // t: [{ round: , t: [{ peer: , score: }] }]
 var peerScore = []; // c: [{ peer: , score: }]
@@ -23,8 +27,6 @@ var completePeer = []; // complete t: [{ peer: , score: }]
 var globalScore = 0; // my global t value
 var scoreResults = []; // [{ peer: , score: }]
 const topic = "demazon";
-
-createStore();
 
 // Function to get Peer ID
 async function getPeerId() {
@@ -142,7 +144,7 @@ async function createStore() {
 
 // Receive msg from subscription
 function receiveMsg(msg) {
-    console.log(`receive pubsub msg: ${msg}`);
+    console.log("receive pubsub msg: ", msg);
 
     // parse the msg
     let data = ab2str(msg.data);
@@ -155,8 +157,8 @@ function receiveMsg(msg) {
     // publish:<itemName> <itemPrice> <storeId>
     if (query == "publish") {
         // TODO: update display list?
-        console.log("new item listed.");
         knownStore.add(args[2]);
+        console.log(`add ${args[2]} to known store`);
     }
     // score:init <store i> <store j> <c_ij>
     // score:<round> <storeId> <t_i>
@@ -204,10 +206,10 @@ async function publishIPNS() {
     const storeFile = await ipfs.add(globSource(fileAddress, { recursive: false, pin: false }));
     // publish
     const publishFile = await ipfs.name.publish(`/ipfs/${storeFile.cid}`);
-    console.log(`published IPNS: ${publishFile.name}`);
     // remove old pinned store file
     // ipfs.pin.rm(`${storeFile.cid}`);
     fileID = publishFile.name;
+    console.log(`published IPNS: ${publishFile.name}`);
 }
 
 function updateItems() {
@@ -232,7 +234,7 @@ function updateItems() {
 async function readStoreFile() {
     await fs.readFile(fileAddress, 'utf8', function (err, data) {
         // Display the file content
-        // console.log(data);
+        console.log(data);
         storeInfo = JSON.parse(data);
         // console.log(storeInfo);
         updateItems();
@@ -255,9 +257,105 @@ window.addEventListener('DOMContentLoaded', () => {
     getPeerId().then(result => {
         replaceText('PeerId', PeerID);
     });
-    // readStoreFile();
+    readStoreFile();
+    createStore();
 })
 
-module.exports = {
-    PeerID, storeInfo, fileID, knownStore, customer, trustScore, peerScore, globalScore, completePeer
+
+
+//-----------------------------------trust algorithm-------------------------------------------------------
+// Based on Algorithm 3 of EigenTrust Paper
+let localPeerRating = []; // s_ij: [{ store: , score: }]
+let normalizedPeerRating = []; // c_ij: [{ store: , score: }]
+let globaltrustRating = {}; // t: {}
+
+let peersWhoHaveBoughtFromMe = {}; // A_i
+let peersWhoIHaveBoughtFrom = {}; // B_i
+
+let alphaValue = 0.2;
+
+async function calculateRating() {
+    console.log(`${fileID} start calculate rating...`);
+    // init
+    trustScore = []; // t: [{ round: , t: [{ peer: , score: }] }]
+    peerScore = []; // c: [{ peer: , score: }]
+    completePeer = []; // complete t: [{ peer: , score: }]
+    globalScore = 0; // my global t value
+    scoreResults = []; // [{ peer: , score: }]
+    let e = 1 / knownStore.length;
+
+    // compute local c_ij and pubsub c
+    await getPeerRating();
+    for (let npr of normalizedPeerRating) {
+        const msg = new TextEncoder().encode(`score:init ${fileID} ${npr.store} ${npr.score}`);
+        await ipfs.pubsub.publish(topic, msg);
+    }
+    console.log(`${fileID} sent out c_ij`);
+
+    // calculate t in rounds
+    let round = 0;
+    if (knownStore.length == 0) {
+        globalScore = 0;
+        const msg = new TextEncoder().encode(`score:${round} ${fileID} ${globalScore} complete`);
+        await ipfs.pubsub.publish(topic, msg);
+    }
+    else {
+        // init t = e
+        trustScore.push({ round: 0, t: [] });
+        const found = trustScore.find(element => element.round === 0);
+        for (let cus of customer) {
+            found.t.push({ peer: cus, score: e });
+        }
+        var prevT = e;
+        // wait to receive c_ji from all customers
+        while (peerScore.length != customer.length) { }
+        while (true) {
+            const found = trustScore.find(element => element.round === round);
+            // wait to receive t_j from all customers
+            while (found.t.length != customer.length) { }
+            globalScore = 0;
+            for (let cus of customer) {
+                let c_ji = peerScore.find(element => element.peer == cus).score;
+                let t_j = found.t.find(element => element.peer == cus).score;
+                globalScore += c_ji * t_j;
+            }
+            globalScore *= (1 - alphaValue);
+            globalScore += alphaValue * e;
+
+            // pubsub t
+            console.log(`round${round}: t=${globalScore}`);
+            round += 1;
+            if (Math.abs(globalScore - prevT) <= 0.1) {
+                const msg = new TextEncoder().encode(`score:${round} ${fileID} ${globalScore} complete`);
+                await ipfs.pubsub.publish(topic, msg);
+                break;
+            }
+            else {
+                const msg = new TextEncoder().encode(`score:${round} ${fileID} ${globalScore}`);
+                await ipfs.pubsub.publish(topic, msg);
+            }
+            prevT = globalScore;
+            trustScore.push({ round: round, t: completePeer });
+        }
+    }
+}
+
+// compute c_ij
+async function getPeerRating() {
+    console.log("***get peer rating");
+    localPeerRating = storeInfo.scores;
+    normalizedPeerRating = [];
+    console.log("Local peer rating: ", localPeerRating);
+    if (localPeerRating.length > 0) {
+        let sum = Object.values(localPeerRating).map(el => el.score).reduce((a, b) => a + b);
+        for (let peer of localPeerRating) {
+            normalizedPeerRating.push({ store: peer.store, score: peer.score / sum });
+        }
+    }
+    // else { // node i is inactive/new
+    //     for (let peer of knownStore) {
+    //         normalizedPeerRating.push({store: peer, score: 1 / knownStore.length});
+    //     }
+    // }
+    console.log("Normalized peer rating: ", normalizedPeerRating);
 }
