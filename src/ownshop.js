@@ -9,18 +9,16 @@ const ipfs = create();
 
 let PeerID = '';
 const fileAddress = __dirname + '/data/store';
-
-// for debug
-let fileID = 'k51qzi5uqu5dky24v2pnpcotcpa57anterwpcrtv0wxyadwrl8by1afehya3kt'; // my store id
-
 var storeInfo = { items: [], scores: []}; // items: [{ id: , name: , price: }], scores: [{ store: , score: }]
 let itemID = 0; // for counting items in my store
+
 const knownStore = new Set();
-
-// for debug
-knownStore.add("k51qzi5uqu5dh5me6pibzdhyxkxcl1g1k7v5m8hsfbgclp3aotogmybn2yk9oz");
-
 const customer = new Set(); // peers who have bought from me
+// for debug
+let fileID = 'k51qzi5uqu5dky24v2pnpcotcpa57anterwpcrtv0wxyadwrl8by1afehya3kt'; // my store id
+knownStore.add("k51qzi5uqu5dkhrjhbeiodogo6uqogdiyqmte2le0tw6i96qssm9qe868m33e0");
+customer.add("k51qzi5uqu5dkhrjhbeiodogo6uqogdiyqmte2le0tw6i96qssm9qe868m33e0");
+
 var trustScore = []; // t: [{ round: , t: [{ peer: , score: }] }]
 var peerScore = []; // c: [{ peer: , score: }]
 var completePeer = []; // complete t: [{ peer: , score: }]
@@ -148,8 +146,8 @@ function receiveMsg(msg) {
     console.log("receive pubsub msg: ", data);
     let idx = data.indexOf(":");
     let query = data.substring(0, idx);
-    let arg = data.substring(idx + 1);
-    var args = arg.split(" ");
+    let info = data.substring(idx + 1);
+    var args = info.split(" ");
 
     // handle query
     // publish:<itemName> <itemPrice> <storeId>
@@ -162,39 +160,39 @@ function receiveMsg(msg) {
     // score:<round> <storeId> <t_i>
     // score:<round> <storeId> <t_j> complete
     if (query == "score") {
-        if (args.length > 3 && arg[3] == 'complete') { // complete
-            scoreResults.push({ peer: arg[1], score: parseInt(arg[2]) });
+        if (args.length > 3 && args[3] == 'complete') { // complete
+            scoreResults.push({ peer: args[1], score: parseInt(args[2]) });
         }
-        if (arg[0] == 'init') {
-            if (arg[2] == fileID) {
-                peerScore.push({ peer: arg[1], score: parseInt(arg[3]) });
+        if (args[0] == 'init') {
+            if (args[2] == fileID) {
+                peerScore.push({ peer: args[1], score: parseInt(args[3]) });
             }
         }
         else {
-            if (customer.has(arg[1]) == true) {
-                if (args.length > 3 && arg[3] == 'complete') { // complete
-                    completePeer.push({ peer: arg[1], score: parseInt(arg[2]) });
+            if (customer.has(args[1]) == true) {
+                if (args.length > 3 && args[3] == 'complete') { // complete
+                    completePeer.push({ peer: args[1], score: parseInt(args[2]) });
                 }
-                const found = trustScore.find(element => element.round === parseInt(arg[0]));
+                const found = trustScore.find(element => element.round === parseInt(args[0]));
                 if (found == undefined) {
-                    trustScore.push({ round: parseInt(arg[0]), t: [{ peer: arg[1], score: parseInt(arg[2]) }] })
+                    trustScore.push({ round: parseInt(args[0]), t: [{ peer: args[1], score: parseInt(args[2]) }] })
                 }
                 else {
-                    found.t.push({ peer: arg[1], score: parseInt(arg[2]) });
+                    found.t.push({ peer: args[1], score: parseInt(args[2]) });
                 }
             }
         }
     }
     // search:<storeId>
     if (query == "search") {
-        if (arg[0] != fileID) {
+        if (args[0] != fileID) {
             calculateRating();
         }
     }
     // buy:<storeId>
     if (query == "buy") {
-        if (arg[0] == fileID) {
-            customer.add(arg[1]);
+        if (args[0] == fileID) {
+            customer.add(args[1]);
         }
     }
 }
@@ -280,7 +278,7 @@ async function calculateRating() {
     completePeer = []; // complete t: [{ peer: , score: }]
     globalScore = 0; // my global t value
     scoreResults = []; // [{ peer: , score: }]
-    let e = 1 / knownStore.length;
+    let e = 1 / knownStore.size;
 
     // compute local c_ij and pubsub c
     await getPeerRating();
@@ -306,11 +304,11 @@ async function calculateRating() {
         }
         var prevT = e;
         // wait to receive c_ji from all customers
-        while (peerScore.length != customer.length) { }
+        while (peerScore.length != customer.size) { }
         while (true) {
             const found = trustScore.find(element => element.round === round);
             // wait to receive t_j from all customers
-            while (found.t.length != customer.length) { }
+            while (found.t.length != customer.size) { }
             globalScore = 0;
             for (let cus of customer) {
                 let c_ji = peerScore.find(element => element.peer == cus).score;
@@ -352,7 +350,7 @@ async function getPeerRating() {
     }
     // else { // node i is inactive/new
     //     for (let peer of knownStore) {
-    //         normalizedPeerRating.push({store: peer, score: 1 / knownStore.length});
+    //         normalizedPeerRating.push({store: peer, score: 1 / knownStore.size});
     //     }
     // }
     console.log("Normalized peer rating length and content: ", normalizedPeerRating.length, normalizedPeerRating);
