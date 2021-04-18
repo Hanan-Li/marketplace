@@ -83,7 +83,7 @@ let selfStoreTopic = '';
 let trustedNode = true;
 let allStores = { stores: [] };
 let allstoresFileAddr = __dirname + '/data/allStores';
-let allstoreIPNSNode = '';
+let allstoreIPNSNode = 'k51qzi5uqu5dl0bn21jqms8jauzxhlg9a3gmc5f2rdcnluulq1veonr4ckl4nr';
 
 // Read Stores Metadata from file system-----------------------------------------------------
 async function readStoreFile() {
@@ -174,13 +174,13 @@ async function handleReceiveStoreTransaction(){
     // handle the msg
     let data = ab2str(msg.data);
     let query = JSON.parse(data);
-    // console.log(query);
-    // storeInfo = {"peerID": peerId, "IPNS": query["IPNS"]}
-    // allStores['stores'].push(storeInfo);
-    // fs.writeFile(allstoresFileAddr, JSON.stringify(allStores), (err) => {
-    //   if (err) throw err;
-    // });
-    // publishIPNS(fileAddress);
+    console.log(query);
+    let boughtId = query["item_id"];
+    let buyerId = query["buyer_id"];
+    let buyerIPNS = query["buyer_IPNS"];
+    console.log("Buyer Id: " + buyerId + " bought item: " + boughtId);
+    removeItem(boughtId);
+    //TODO: CONNECT WITH TRUST SHIT
   }
 
   await ipfs.pubsub.subscribe(selfStoreTopic, receiveMsg);
@@ -205,6 +205,7 @@ async function initialize(){
     await handleReceiveStoreTransaction();
   }
 }
+
 // Own Shop Functions---------------------------------------------------------
 function addNewItem(newItem){
   storeInfo['items'].push(newItem);
@@ -213,7 +214,27 @@ function addNewItem(newItem){
   });
   publishIPNS(fileAddress);
 }
+
+function removeItem(itemId){
+  let itemID = parseInt(itemId);
+  console.log(itemID);
+  for(let i = 0; i < storeInfo["items"].length; i++){
+    if (storeInfo["items"][i]["id"] === itemID){
+      console.log("foundItem");
+      storeInfo["items"].splice(i,1);
+      break;
+    }
+  }
+
+  fs.writeFile(fileAddress, JSON.stringify(storeInfo), (err) => {
+    if (err) throw err;
+  });
+  console.log(storeInfo);
+  publishIPNS(fileAddress);
+}
+
 initialize();
+
 
 // FUCK SEARCH
 //-----------------------------------------------------------------------------
@@ -237,3 +258,9 @@ ipcMain.on('addNewItem', (event, arg) => {
   addNewItem(arg);
   event.returnValue = storeInfo;
 })
+
+ipcMain.on('getStoreMetadataIPNS', (event, arg) => {
+  console.log(arg) // prints "ping"
+  event.returnValue = allstoreIPNSNode;
+})
+
