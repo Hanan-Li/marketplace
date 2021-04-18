@@ -1,30 +1,28 @@
-const { calculateRating } = require('./trust.js');
 // Javascript for main page
+const { calculateRating } = require('./trust.js');
 const electron = require('electron');
-// Importing the net Module from electron remote
 const net = electron.remote.net;
 const $ = require('jquery');
 const create = require('ipfs-http-client');
 const { globSource } = require('ipfs-http-client');
-const { CID } = require('ipfs-http-client');
 const fs = require('fs');
 const ipfs = create();
+
 let PeerID = '';
 const fileAddress = __dirname + '/data/store';
 // console.log('store file address:', fileAddress);
-let fileID = '';
-var storeInfo = { items: [], scores: [] };
-let itemID = 0;
+
+let fileID = ''; // my store id
+var storeInfo = { items: [], scores: [] }; // items: [{ id: , name: , price: }], scores: [{ store: , score: }]
+let itemID = 0; // for counting items in my store
 const knownStore = new Set();
-const customer = new Set();
-var trustScore = []; // t
-var peerScore = []; // c
-var completePeer = []; // complete t
+const customer = new Set(); // peers who have bought from me
+var trustScore = []; // t: [{ round: , t: [{ peer: , score: }] }]
+var peerScore = []; // c: [{ peer: , score: }]
+var completePeer = []; // complete t: [{ peer: , score: }]
 var globalScore = 0; // my global t value
-var scoreResults = [];
+var scoreResults = []; // [{ peer: , score: }]
 const topic = "demazon";
-// let DataID = '';
-let complete_rating = false;
 
 createStore();
 
@@ -43,8 +41,6 @@ async function addNewItem(e) {
     e.preventDefault();
     const itemName = document.getElementById('ItemName').value;
     const itemPrice = document.getElementById('ItemPrice').value;
-    // console.log(itemName);
-    // console.log(itemPrice);
 
     // Add new item to store file
     storeInfo['items'].push({ id: itemID, name: itemName, price: itemPrice });
@@ -52,15 +48,10 @@ async function addNewItem(e) {
     fs.writeFile(fileAddress, JSON.stringify(storeInfo), (err) => {
         if (err) throw err;
     });
-    // publish new item
     publishIPNS();
-    // update item card
     updateItems();
-    // publish the newly added item to others under the subscription
-    const msg = new TextEncoder().encode('publish:' + itemName + ' ' + itemPrice + ' ' + fileID)
+    const msg = new TextEncoder().encode(`publish:${itemName} ${itemPrice} ${fileID}`)
     await ipfs.pubsub.publish(topic, msg)
-    // msg was broadcasted
-    // console.log(`published to ${topic}`)
 }
 
 // Search Item
@@ -68,22 +59,21 @@ async function searchItem(e) {
     e.preventDefault();
     // clean up search item card
     for (let index = 0; index < 3; index++) {
-        document.getElementById("sith" + index).innerText = "No Item";
-        document.getElementById("sitp" + index).innerText = "No Item";
-        document.getElementById("sits" + index).innerText = "No Item";
+        document.getElementById(`sith${index}`).innerText = "No Item";
+        document.getElementById(`sitp${index}`).innerText = "No price";
+        document.getElementById(`sits${index}`).innerText = "No store";
+        document.getElementById(`sitr${index}`).innerText = "No rating";
     }
     const searchItemName = document.getElementById('searchItemName').value;
-    // console.log(searchItemName);
     const candidate = new Set();
     let itemFound = 0;
 
     // get rating
-    const msg = new TextEncoder().encode('search:' + fileID)
+    const msg = new TextEncoder().encode(`search:${fileID}`)
     await ipfs.pubsub.publish(topic, msg);
     await calculateRating();
-    // while (complete_rating == false) {}
-    // complete_rating = false;
 
+    // find match
     for (let store of knownStore) {
         // console.log(store);
         // console.log(ipfs.cat('/ipns/' + store));
@@ -101,32 +91,26 @@ async function searchItem(e) {
             // console.log(item.name);
             if (item.name == searchItemName) {
                 candidate.add(store);
-                // console.log('find item');
-                document.getElementById("sith" + itemFound).innerText = item.name;
-                document.getElementById("sitp" + itemFound).innerText = item.price;
-                document.getElementById("sits" + itemFound).innerText = store;
+                document.getElementById(`sith${itemFound}`).innerText = item.name;
+                document.getElementById(`sitp${itemFound}`).innerText = item.price;
+                document.getElementById(`sits${itemFound}`).innerText = store;
+                const found = scoreResults.find(element => element.peer === store);
+                document.getElementById(`sitr${itemFound}`).innerText = found.score;
                 itemFound = itemFound + 1;
             }
         }
     }
-    // publish the search query to others under the subscription
-    // const msg = new TextEncoder().encode('search:' + searchItemName + ' ' + fileID)
-    // await ipfs.pubsub.publish(topic, msg)
 }
 
 // Rate Item
 async function rateItem(elem) {
     console.log("rate item");
     var idx = elem.value;
-    // console.log(idx);
     var item = document.getElementById("sith" + idx).innerText;
-    // console.log(item);
     var itemStore = document.getElementById("sits" + idx).innerText;
-    // console.log(itemStore);
     var rating = document.getElementById("rate" + idx).value;
-    // console.log(rating);
+
     if (item !== "No Item" && rating !== "") {
-        // console.log("record rating");
         const found = storeInfo['scores'].find(element => element.store === itemStore);
         if (found == undefined) {
             storeInfo['scores'].push({ store: itemStore, score: parseInt(rating) })
@@ -134,8 +118,6 @@ async function rateItem(elem) {
         else {
             found['score'] += parseInt(rating);
         }
-        // console.log(storeInfo['scores']);
-        // console.log(storeInfo);
         const fs = require('fs');
         fs.writeFile(fileAddress, JSON.stringify(storeInfo), (err) => {
             if (err) throw err;
@@ -154,96 +136,81 @@ async function createStore() {
     // });
     publishIPNS();
 
-    // Receive msg from subscription
-    const receiveMsg = (msg) => {
-        console.log("receive pubsub msg", msg);
-        // console.log(msg);
-        // console.log(ab2str(msg.data));
-        // console.log("received from:", msg.from);
+    await ipfs.pubsub.subscribe(topic, receiveMsg)
+    console.log(`subscribed to ${topic}`);
+}
 
-        // handle the msg
-        let data = ab2str(msg.data);
-        let idx = data.indexOf(":");
-        let query = data.substring(0, idx);
-        let arg = data.substring(idx + 1);
-        // console.log(query);
-        // console.log(arg);
-        var args = arg.split(" ");
-        if (query == "publish") {
-            // TODO: update display list
-            console.log("new item listed.");
-            // add new store to store set
-            // console.log(args[2]);
-            knownStore.add(args[2]);
+// Receive msg from subscription
+function receiveMsg(msg) {
+    console.log(`receive pubsub msg: ${msg}`);
+
+    // parse the msg
+    let data = ab2str(msg.data);
+    let idx = data.indexOf(":");
+    let query = data.substring(0, idx);
+    let arg = data.substring(idx + 1);
+    var args = arg.split(" ");
+
+    // handle query
+    // publish:<itemName> <itemPrice> <storeId>
+    if (query == "publish") {
+        // TODO: update display list?
+        console.log("new item listed.");
+        knownStore.add(args[2]);
+    }
+    // score:init <store i> <store j> <c_ij>
+    // score:<round> <storeId> <t_i>
+    // score:<round> <storeId> <t_j> complete
+    if (query == "score") {
+        if (args.length > 3 && arg[3] == 'complete') { // complete
+            scoreResults.push({ peer: arg[1], score: parseInt(arg[2]) });
         }
-        // TODO: handle other queries like transaction?
-        if (query == "score") {
-            if (args.length > 3 && arg[3] == 'complete') { // 'complete'
-                scoreResults.push({ peer: arg[1], score: parseInt(arg[2]) });
+        if (arg[0] == 'init') {
+            if (arg[2] == fileID) {
+                peerScore.push({ peer: arg[1], score: parseInt(arg[3]) });
             }
-            if (arg[0] == 'init') {
-                if (arg[2] == fileID) {
-                    peerScore.push({ peer: arg[1], score: parseInt(arg[3]) });
+        }
+        else {
+            if (customer.has(arg[1]) == true) {
+                if (args.length > 3 && arg[3] == 'complete') { // complete
+                    completePeer.push({ peer: arg[1], score: parseInt(arg[2]) });
                 }
-            }
-            else {
-                if (customer.has(arg[1]) == true) {
-                    if (args.length > 3 && arg[3] == 'complete') { // 'complete'
-                        completePeer.push({ peer: arg[1], score: parseInt(arg[2]) });
-                    }
-                    const found = trustScore.find(element => element.round === parseInt(arg[0]));
-                    if (found == undefined) {
-                        trustScore.push({ round: parseInt(arg[0]), t: [{ peer: arg[1], score: parseInt(arg[2]) }] })
-                    }
-                    else {
-                        found.t.push({ peer: arg[1], score: parseInt(arg[2]) });
-                    }
+                const found = trustScore.find(element => element.round === parseInt(arg[0]));
+                if (found == undefined) {
+                    trustScore.push({ round: parseInt(arg[0]), t: [{ peer: arg[1], score: parseInt(arg[2]) }] })
                 }
-            }
-        }
-        if (query == "search") {
-            if (arg[0] != fileID) {
-                calculateRating();
-            }
-        }
-        if (query == "buy") {
-            if (arg[0] == fileID) {
-                customer.add(arg[1]);
+                else {
+                    found.t.push({ peer: arg[1], score: parseInt(arg[2]) });
+                }
             }
         }
     }
-
-    await ipfs.pubsub.subscribe(topic, receiveMsg)
-    console.log(`subscribed to ${topic}`);
+    // search:<storeId>
+    if (query == "search") {
+        if (arg[0] != fileID) {
+            calculateRating();
+        }
+    }
+    // buy:<storeId>
+    if (query == "buy") {
+        if (arg[0] == fileID) {
+            customer.add(arg[1]);
+        }
+    }
 }
 
 async function publishIPNS() {
     // add changed store file
     const storeFile = await ipfs.add(globSource(fileAddress, { recursive: false, pin: false }));
-    // console.log(`${storeFile.cid}`)
     // publish
     const publishFile = await ipfs.name.publish(`/ipfs/${storeFile.cid}`);
-    console.log("published IPNS: ", `${publishFile.name}`);
+    console.log(`published IPNS: ${publishFile.name}`);
     // remove old pinned store file
     // ipfs.pin.rm(`${storeFile.cid}`);
-    fileID = `${publishFile.name}`;
-    // console.log(fileID);
-}
-
-function replacer(key, value) {
-    if (value instanceof Map) {
-        return {
-            dataType: 'Map',
-            value: Array.from(value.entries()),
-        };
-    } else {
-        return value;
-    }
+    fileID = publishFile.name;
 }
 
 function updateItems() {
-
-    // console.log("shit");
     $('#own_items').empty();
     for (let i = 0; i < storeInfo['items'].length; i++) {
         let id = storeInfo['items'][i]['id'];
@@ -264,7 +231,6 @@ function updateItems() {
 
 async function readStoreFile() {
     await fs.readFile(fileAddress, 'utf8', function (err, data) {
-
         // Display the file content
         // console.log(data);
         storeInfo = JSON.parse(data);
@@ -274,9 +240,9 @@ async function readStoreFile() {
 }
 
 async function buyItem(element) {
-    console.log("***buy item");
+    console.log("buy item");
     var itemStore = document.getElementById("sits" + idx).innerText;
-    const msg = new TextEncoder().encode('buy:' + itemStore + ' ' + fileID)
+    const msg = new TextEncoder().encode(`buy:${itemStore} ${fileID}`)
     await ipfs.pubsub.publish(topic, msg)
 }
 
@@ -293,5 +259,5 @@ window.addEventListener('DOMContentLoaded', () => {
 })
 
 module.exports = {
-    PeerID, storeInfo, fileID, knownStore, complete_rating, customer, trustScore, peerScore, globalScore, completePeer
+    PeerID, storeInfo, fileID, knownStore, customer, trustScore, peerScore, globalScore, completePeer
 }
