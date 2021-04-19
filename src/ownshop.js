@@ -139,9 +139,12 @@ window.addEventListener('DOMContentLoaded', () => {
         const element = document.getElementById(selector)
         if (element) element.innerText = text
     }
-    PeerID = ipcRenderer.sendSync('getPeerId', 'ping');
+    PeerID = ipcRenderer.sendSync('getPeerId', 'getPeerId');
     replaceText('PeerId', PeerID);
-    storeInfo = ipcRenderer.sendSync('getStoreInfo', 'ping');
+    storeInfo = ipcRenderer.sendSync('getStoreInfo', 'getStoreInfo');
+    trustNodeRating = ipcRenderer.sendSync('getGlobalTrust', 'getGlobalTrust');
+    let rating = 5 * Math.min(storeInfo["score"] / trustNodeRating, 1);
+    $("#Rating").append(`${rating} / 5`);
     itemID = storeInfo["items"].length;
     updateItems(storeInfo);
 })

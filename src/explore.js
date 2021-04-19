@@ -6,9 +6,10 @@ const fs = require('fs');
 const ipfs = create();
 const $ = require('jquery');
 
-let PeerID = ipcRenderer.sendSync('getPeerId', 'ping');
-let IPNSNode = ipcRenderer.sendSync('getIPNSId', 'ping');
-let allStoreMetadataIPNS = ipcRenderer.sendSync('getStoreMetadataIPNS', 'ping');
+let PeerID = ipcRenderer.sendSync('getPeerId', 'getPeerId');
+let IPNSNode = ipcRenderer.sendSync('getIPNSId', 'getIPNSId');
+let allStoreMetadataIPNS = ipcRenderer.sendSync('getStoreMetadataIPNS', 'getStoreMetadataIPNS');
+let globalTrustRating = ipcRenderer.sendSync('getGlobalTrust', 'getGlobalTrust');
 let allStores = {};
 
 function ab2str(buf) {
@@ -76,12 +77,12 @@ async function updateItemListing(){
         let storeIPNS = allStores["stores"][i]["IPNS"];
         let path = '/ipns/' + storeIPNS;
         let storeInfo = await getStoreInfo(path);
+        let rating = 5 * storeInfo["score"] / globalTrustRating;
         let oneStore = `<div id="${storeIPNS}"></div>`;
         $("#items").append(oneStore);
         if(storeInfo["items"].length !== 0){
-            $(`#${storeIPNS}`).append(`<h4>Items for shop ${storeIPNS}: </h4>`);
-            //GET STORE RATING FROM TRUST
-            //probably an ipc call
+            $(`#${storeIPNS}`).append(`<h4>Items for shop ${storeIPNS} </h4>`);
+            $(`#${storeIPNS}`).append(`<h3>Shop rating ${rating}/5</h3>`);
         }
         for(let j = 0; j < storeInfo["items"].length; j++){
             let id = storeInfo["items"][j]["id"];

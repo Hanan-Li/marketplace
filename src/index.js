@@ -91,6 +91,7 @@ let B = new Set(); // Set of peers I have bought from
 let C = {}; // My rating of each peer
 let p = 0; // Change if its a trusted Node
 let alpha = 0.2;
+let global_p = 0.5;
 
 // Read Stores Metadata from file system-----------------------------------------------------
 async function readStoreFile() {
@@ -208,7 +209,7 @@ async function handleReceiveRateTransaction(){
     let query = JSON.parse(data);
     console.log(query);
     let rating = query["rating"];
-    let buyerIPNS = query["buyer_IPNS"];
+    let buyerIPNS = query["ipns"];
     if(!(buyerIPNS in A)){
       A[buyerIPNS] = [];
     }
@@ -218,8 +219,10 @@ async function handleReceiveRateTransaction(){
     else{
       A[buyerIPNS][0] = parseFloat(rating);
     }
+    console.log(A);
     EigenTrust();
   }
+
   console.log("subscribing to rate");
   await ipfs.pubsub.subscribe(selfStoreRateTopic, receiveMsg);
 }
@@ -237,6 +240,7 @@ async function getStoreInfo(path){
 async function EigenTrust(){
   let t = 0;
   let eps = 1;
+  console.log("Calculating EigenTrust");
   while(eps >= 0.1){
     for(const ipns in A){
       let rating_list = A[ipns];
@@ -244,8 +248,8 @@ async function EigenTrust(){
         return;
       }
       let rating = rating_list[0];
-      let storeInfo = await getStoreInfo('/ipns/' + ipns);
-      let storeScore = storeInfo["score"];
+      let tempStoreInfo = await getStoreInfo('/ipns/' + ipns);
+      let storeScore = tempStoreInfo["score"];
       t += storeScore * rating;
     }
     t *= (1-alpha);
@@ -332,6 +336,11 @@ ipcMain.on('getStoreInfo', (event, arg) => {
   event.returnValue = storeInfo;
 })
 
+ipcMain.on('getGlobalTrust', (event, arg) => {
+  console.log(arg) // prints "ping"
+  event.returnValue = global_p;
+})
+
 ipcMain.on('addNewItem', (event, arg) => {
   console.log(arg) // prints "ping"
   addNewItem(arg);
@@ -360,21 +369,25 @@ ipcMain.on('rateItem', (event, arg) => {
     C[boughtFrom] = [];
   }
   C[boughtFrom].push(rating);
-  let numerator = C[boughtFrom].reduce(sum) / C[boughtFrom].length;
-  console.log(C);
-  console.log(numerator);
-  let denominator = 0;
-  for(let peer in C){
-    let ratingArr = C[peer];
-    denominator += ratingArr.reduce(sum) / ratingArr.length;
+  for(let node in C){
+    let numerator = C[node].reduce(sum) / C[node].length;
+    console.log(C);
+    console.log(numerator);
+    let denominator = 0;
+    for(let peer in C){
+      let ratingArr = C[peer];
+      denominator += ratingArr.reduce(sum) / ratingArr.length;
+    }
+    // or could let denominator be 5
+    rating = p;
+    if(denominator !== 0){
+      rating = numerator / denominator;
+    }
+    let topic = node + '/rating';
+    msg = { "rating" : rating, "ipns" : IPNSNode};
+    console.log(msg);
+    ipfs.pubsub.publish(topic, JSON.stringify(msg));
   }
-  rating = p;
-  if(denominator !== 0){
-    rating = numerator / denominator;
-  }
-  let topic = boughtFrom + '/rating';
-  msg = { "rating" : rating, "ipns" : IPNSNode};
-  console.log(msg);
-  ipfs.pubsub.publish(topic, JSON.stringify(msg));
+  
   event.returnValue = allstoreIPNSNode;
 })
