@@ -77,7 +77,7 @@ async function searchItem(e) {
     await ipfs.pubsub.publish(topic, msg);
     await calculateRating();
     console.log(scoreResults);
-    await sleep(20);
+    await sleep(200);
 
     // find match
     for (let store of knownStore) {
