@@ -148,7 +148,7 @@ async function createStore() {
 
 // Receive msg from subscription
 function receiveMsg(msg) {
-    console.log("receive pubsub msg: ", msg);
+    console.log("receive pubsub msg: ", ab2str(msg.data));
 
     // parse the msg
     let data = ab2str(msg.data);
@@ -315,11 +315,15 @@ async function calculateRating() {
         }
         var prevT = e;
         // wait to receive c_ji from all customers
-        while (peerScore.length != customer.size) { }
+        while (peerScore.length != customer.size) {
+            await sleep(20);
+        }
         while (true) {
             const found = trustScore.find(element => element.round === round);
             // wait to receive t_j from all customers
-            while (found.t.length != customer.size) { }
+            while (found.t.length != customer.size) {
+                await sleep(20);
+            }
             globalScore = 0;
             for (let cus of customer) {
                 let c_ji = peerScore.find(element => element.peer == cus).score;
@@ -345,6 +349,10 @@ async function calculateRating() {
             trustScore.push({ round: round, t: completePeer });
         }
     }
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // compute c_ij
