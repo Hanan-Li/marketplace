@@ -232,16 +232,16 @@ async function getStoreInfo(path){
   for await (const chunk of ipfs.cat(path)) {
       info += ab2str(chunk);
   }
-  storeInfo = JSON.parse(info);
-  return storeInfo;
+  let tempStoreInfo = JSON.parse(info);
+  return tempStoreInfo;
 }
 
 // One Iteration of EigenTrust
 async function EigenTrust(){
-  let t = 0;
   let eps = 1;
   console.log("Calculating EigenTrust");
   while(eps >= 0.1){
+    let t = 0;
     for(const ipns in A){
       let rating_list = A[ipns];
       if(rating_list.length === 0){

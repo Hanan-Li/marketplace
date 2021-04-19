@@ -143,7 +143,11 @@ window.addEventListener('DOMContentLoaded', () => {
     replaceText('PeerId', PeerID);
     storeInfo = ipcRenderer.sendSync('getStoreInfo', 'getStoreInfo');
     trustNodeRating = ipcRenderer.sendSync('getGlobalTrust', 'getGlobalTrust');
-    let rating = 5 * Math.min(storeInfo["score"] / trustNodeRating, 1);
+    let rating = storeInfo["score"] / trustNodeRating;
+    if(rating >= 1){
+        rating = 1;
+    }
+    rating = 5 * rating;
     $("#Rating").append(`${rating} / 5`);
     itemID = storeInfo["items"].length;
     updateItems(storeInfo);
