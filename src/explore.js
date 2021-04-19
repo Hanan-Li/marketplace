@@ -38,7 +38,7 @@ function buyItem(IPNS, id){
     console.log("Buy Item");
     console.log(IPNS);
     console.log(id);
-    IPNSNode = ipcRenderer.sendSync('getIPNSId', 'ping');
+    IPNSNode = ipcRenderer.sendSync('getIPNSId', 'getIPNSId');
     let data = { "buyer_id": PeerID, "buyer_IPNS": IPNSNode, "item_id": id};
     console.log(IPNS);
     ipfs.pubsub.publish(IPNS, JSON.stringify(data));
@@ -52,6 +52,7 @@ function buyItem(IPNS, id){
     `;
     $(`#${IPNS}_${id}`).children().last().remove();
     $(`#${IPNS}_${id}`).append(form);
+    ipcRenderer.sendSync('buyItem', IPNS);
 }
 
 function rateItem(event){

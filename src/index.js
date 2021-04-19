@@ -73,8 +73,7 @@ const ipfs = create();
 // Variables
 const fileAddress = __dirname + '/data/store';
 let PeerID = '';
-var storeInfo = { items: [], scores: [] };
-storeInfo['scores'] = new Map();
+var storeInfo = { items: [], score: 0.0 };
 let IPNSNode = '';
 let registerStoreTopic = 'registerDemazonStore';
 let selfStoreTopic = '';
@@ -84,6 +83,14 @@ let trustedNode = true;
 let allStores = { stores: [] };
 let allstoresFileAddr = __dirname + '/data/allStores';
 let allstoreIPNSNode = 'k51qzi5uqu5dl0bn21jqms8jauzxhlg9a3gmc5f2rdcnluulq1veonr4ckl4nr';
+
+//EigenTrust Variables
+let selfStoreRateTopic = '';
+let A = {}; // Set of peers who has bought items from me
+let B = new Set(); // Set of peers I have bought from
+let C = {}; // My rating of each peer
+let p = 0; // Change if its a trusted Node
+let alpha = 0;
 
 // Read Stores Metadata from file system-----------------------------------------------------
 async function readStoreFile() {
@@ -181,11 +188,77 @@ async function handleReceiveStoreTransaction(){
     console.log("Buyer Id: " + buyerId + " bought item: " + boughtId);
     removeItem(boughtId);
     //TODO: CONNECT WITH TRUST SHIT
+    if(!(buyerIPNS in A)){
+      A[buyerIPNS] = [];
+    }
   }
 
   await ipfs.pubsub.subscribe(selfStoreTopic, receiveMsg);
 }
 
+// Store Node handling receiving Buy requests
+async function handleReceiveRateTransaction(){
+  const receiveMsg = (msg) => {
+    console.log(msg);
+    console.log(ab2str(msg.data));
+    console.log("received from:", msg.from);
+    let peerId = msg.from;
+    // handle the msg
+    let data = ab2str(msg.data);
+    let query = JSON.parse(data);
+    console.log(query);
+    let rating = query["rating"];
+    let buyerIPNS = query["buyer_IPNS"];
+    if(!(buyerIPNS in A)){
+      A[buyerIPNS] = [];
+    }
+    if(A[buyerIPNS].length === 0){
+      A[buyerIPNS].push(rating);
+    }
+    else{
+      A[buyerIPNS][0] = parseFloat(rating);
+    }
+    EigenTrust();
+  }
+
+  await ipfs.pubsub.subscribe(selfStoreRateTopic, receiveMsg);
+}
+
+async function getStoreInfo(path){
+  let info = '';
+  for await (const chunk of ipfs.cat(path)) {
+      info += ab2str(chunk);
+  }
+  storeInfo = JSON.parse(info);
+  return storeInfo;
+}
+
+// One Iteration of EigenTrust
+async function EigenTrust(){
+  let t = 0;
+  let eps = 1;
+  while(eps >= 0.1){
+    for(const ipns in A){
+      let rating_list = A[ipns];
+      if(rating_list.length === 0){
+        return;
+      }
+      let rating = rating_list[0];
+      let storeInfo = await getStoreInfo('/ipns/' + ipns);
+      let storeScore = storeInfo["score"];
+      t += storeScore * rating;
+    }
+    t *= (1-alpha);
+    t += alpha*p;
+    console.log(t);
+    eps = Math.abs(t - storeInfo["score"]);
+    storeInfo["score"] = t;
+    fs.writeFile(fileAddress, JSON.stringify(storeInfo), (err) => {
+      if (err) throw err;
+    });
+    publishIPNS(fileAddress);
+  }
+}
 
 async function initialize(){
   getPeerId();
@@ -201,11 +274,16 @@ async function initialize(){
     console.log(msg);
     await ipfs.pubsub.publish(registerStoreTopic, JSON.stringify(msg));
     selfStoreTopic = msg["IPNS"];
+    selfStoreRateTopic = msg["IPNS"] + "/rating";
     console.log(selfStoreTopic); 
     await handleReceiveStoreTransaction();
+    await handleReceiveRateTransaction();
   }
 }
-
+// Misc Functions------------------------------------------------------------
+function sum(total, num) {
+  return total + num;
+}
 // Own Shop Functions---------------------------------------------------------
 function addNewItem(newItem){
   storeInfo['items'].push(newItem);
@@ -264,3 +342,34 @@ ipcMain.on('getStoreMetadataIPNS', (event, arg) => {
   event.returnValue = allstoreIPNSNode;
 })
 
+ipcMain.on('buyItem', (event, arg) => {
+  console.log(arg) // prints "ping"
+  let boughtFrom = arg;
+  B.add(boughtFrom);
+  console.log(boughtFrom);
+  event.returnValue = allstoreIPNSNode;
+})
+
+ipcMain.on('rateItem', (event, arg) => {
+  console.log(arg) // prints "ping"
+  let boughtFrom = arg["IPNS"];
+  let rating = arg["rating"];
+  // Publish rating onto ipns channel
+  C[boughtFrom].push(rating);
+  let numerator = C[boughtFrom].reduce(sum) / C[boughtFrom].length;
+  console.log(C);
+  console.log(numerator);
+  let denominator = 0;
+  for(let peer in C){
+    let ratingArr = C[peer];
+    denominator += ratingArr.reduce(sum) / ratingArr.length;
+  }
+  rating = p;
+  if(denominator !== 0){
+    rating = numerator / denominator;
+  }
+  let topic = boughtFrom + '/rating';
+  msg = { "rating" : rating, "ipns" : IPNSNode};
+  ipfs.pubsub.publish(topic, JSON.stringify(msg));
+  event.returnValue = allstoreIPNSNode;
+})
