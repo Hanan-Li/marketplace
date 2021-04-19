@@ -59,7 +59,14 @@ function rateItem(event){
     // DO trust shit
     event.preventDefault();
     console.log(event);
-
+    let rating = parseInt(event["srcElement"].children[1].value);
+    let id = event["srcElement"].children[1].id;
+    let split_id = id.split("_");
+    let ipns = split_id[1];
+    let itemId = split_id[2];
+    let msg = { "IPNS": ipns, "rating": rating};
+    console.log(msg);
+    ipcRenderer.sendSync('rateItem', msg);
 }
 
 async function updateItemListing(){

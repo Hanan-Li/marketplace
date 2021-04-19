@@ -79,7 +79,7 @@ let registerStoreTopic = 'registerDemazonStore';
 let selfStoreTopic = '';
 
 //Trusted Node Variables
-let trustedNode = true;
+let trustedNode = false;
 let allStores = { stores: [] };
 let allstoresFileAddr = __dirname + '/data/allStores';
 let allstoreIPNSNode = 'k51qzi5uqu5dl0bn21jqms8jauzxhlg9a3gmc5f2rdcnluulq1veonr4ckl4nr';
@@ -90,7 +90,7 @@ let A = {}; // Set of peers who has bought items from me
 let B = new Set(); // Set of peers I have bought from
 let C = {}; // My rating of each peer
 let p = 0; // Change if its a trusted Node
-let alpha = 0;
+let alpha = 0.2;
 
 // Read Stores Metadata from file system-----------------------------------------------------
 async function readStoreFile() {
@@ -192,7 +192,7 @@ async function handleReceiveStoreTransaction(){
       A[buyerIPNS] = [];
     }
   }
-
+  console.log("subscribing to store");
   await ipfs.pubsub.subscribe(selfStoreTopic, receiveMsg);
 }
 
@@ -220,7 +220,7 @@ async function handleReceiveRateTransaction(){
     }
     EigenTrust();
   }
-
+  console.log("subscribing to rate");
   await ipfs.pubsub.subscribe(selfStoreRateTopic, receiveMsg);
 }
 
@@ -250,6 +250,7 @@ async function EigenTrust(){
     }
     t *= (1-alpha);
     t += alpha*p;
+    console.log("rating");
     console.log(t);
     eps = Math.abs(t - storeInfo["score"]);
     storeInfo["score"] = t;
@@ -355,6 +356,9 @@ ipcMain.on('rateItem', (event, arg) => {
   let boughtFrom = arg["IPNS"];
   let rating = arg["rating"];
   // Publish rating onto ipns channel
+  if(!(boughtFrom in C)){
+    C[boughtFrom] = [];
+  }
   C[boughtFrom].push(rating);
   let numerator = C[boughtFrom].reduce(sum) / C[boughtFrom].length;
   console.log(C);
@@ -370,6 +374,7 @@ ipcMain.on('rateItem', (event, arg) => {
   }
   let topic = boughtFrom + '/rating';
   msg = { "rating" : rating, "ipns" : IPNSNode};
+  console.log(msg);
   ipfs.pubsub.publish(topic, JSON.stringify(msg));
   event.returnValue = allstoreIPNSNode;
 })
