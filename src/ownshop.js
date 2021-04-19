@@ -14,11 +14,11 @@ let itemID = 0; // for counting items in my store
 
 const knownStore = new Set();
 const customer = new Set(); // peers who have bought from me
-let fileID = ''
+
 // for debug
-fileID = 'k51qzi5uqu5dky24v2pnpcotcpa57anterwpcrtv0wxyadwrl8by1afehya3kt'; // my store id
-knownStore.add("k51qzi5uqu5dkhrjhbeiodogo6uqogdiyqmte2le0tw6i96qssm9qe868m33e0");
-customer.add("k51qzi5uqu5dkhrjhbeiodogo6uqogdiyqmte2le0tw6i96qssm9qe868m33e0");
+let fileID = 'k51qzi5uqu5dkhrjhbeiodogo6uqogdiyqmte2le0tw6i96qssm9qe868m33e0'; // my store id
+knownStore.add("k51qzi5uqu5dky24v2pnpcotcpa57anterwpcrtv0wxyadwrl8by1afehya3kt");
+customer.add("k51qzi5uqu5dky24v2pnpcotcpa57anterwpcrtv0wxyadwrl8by1afehya3kt");
 
 
 var trustScore = []; // t: [{ round: , t: [{ peer: , score: }] }]
@@ -26,7 +26,7 @@ var peerScore = []; // c: [{ peer: , score: }]
 var completePeer = []; // complete t: [{ peer: , score: }]
 var globalScore = 0; // my global t value
 var scoreResults = []; // [{ peer: , score: }]
-const topic = "demazon";
+const topic = "demazon1";
 
 // Function to get Peer ID
 async function getPeerId() {
@@ -274,7 +274,7 @@ var peersWhoIHaveBoughtFrom = {}; // B_i
 var alphaValue = 0.2;
 
 async function calculateRating() {
-    console.log(`${fileID} start calculate rating...`);
+    console.log("***calculate rating");
     // init
     trustScore = []; // t: [{ round: , t: [{ peer: , score: }] }]
     peerScore = []; // c: [{ peer: , score: }]
@@ -289,9 +289,9 @@ async function calculateRating() {
         if (fileID != npr.store) {
             const msg = new TextEncoder().encode(`score:init ${fileID} ${npr.store} ${npr.score}`);
             await ipfs.pubsub.publish(topic, msg);
+            console.log("send out c_ij: ", ab2str(msg));
         }
     }
-    console.log(`${fileID} sent out c_ij`);
 
     // calculate t in rounds
     let round = 0;
@@ -303,17 +303,24 @@ async function calculateRating() {
     else {
         // init t = e
         trustScore.push({ round: 0, t: [] });
-        const found = trustScore.find(element => element.round === 0);
+        const found = trustScore.find(element => element.round == 0);
         for (let cus of customer) {
+            console.log(`add ${cus} to init trustScore`);
             found.t.push({ peer: cus, score: e });
         }
         var prevT = e;
         // wait to receive c_ji from all customers
-        while (peerScore.length != customer.size) { }
+        while (peerScore.length != customer.size) {
+            console.log(`receiving peerScore: ${peerScore.length} != ${customer.size}`);
+            await sleep(100);
+        }
         while (true) {
             const found = trustScore.find(element => element.round === round);
             // wait to receive t_j from all customers
-            while (found.t.length != customer.size) { }
+            while (found.t.length != customer.size) {
+                console.log(`receiving trustScore: ${found.t.length} != ${customer.size}`);
+                await sleep(100);
+            }
             globalScore = 0;
             for (let cus of customer) {
                 let c_ji = peerScore.find(element => element.peer == cus).score;
@@ -357,4 +364,8 @@ async function getPeerRating() {
     //         normalizedPeerRating.push({store: peer, score: 1 / knownStore.size});
     //     }
     // }
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }

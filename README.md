@@ -24,3 +24,7 @@ ipfs pubsub sub demazon
 # in a new termial: publish to subscription
 ipfs pubsub pub demazon publish:<CID>
 ```
+
+## Peers
+- quyuyiUbuntu: k51qzi5uqu5dkhrjhbeiodogo6uqogdiyqmte2le0tw6i96qssm9qe868m33e0
+- quyuyiMac: k51qzi5uqu5dky24v2pnpcotcpa57anterwpcrtv0wxyadwrl8by1afehya3kt
