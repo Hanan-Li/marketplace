@@ -14,17 +14,19 @@ let itemID = 0; // for counting items in my store
 
 const knownStore = new Set();
 const customer = new Set(); // peers who have bought from me
+let fileID = ''
 // for debug
-let fileID = 'k51qzi5uqu5dky24v2pnpcotcpa57anterwpcrtv0wxyadwrl8by1afehya3kt'; // my store id
+fileID = 'k51qzi5uqu5dky24v2pnpcotcpa57anterwpcrtv0wxyadwrl8by1afehya3kt'; // my store id
 knownStore.add("k51qzi5uqu5dkhrjhbeiodogo6uqogdiyqmte2le0tw6i96qssm9qe868m33e0");
 customer.add("k51qzi5uqu5dkhrjhbeiodogo6uqogdiyqmte2le0tw6i96qssm9qe868m33e0");
+
 
 var trustScore = []; // t: [{ round: , t: [{ peer: , score: }] }]
 var peerScore = []; // c: [{ peer: , score: }]
 var completePeer = []; // complete t: [{ peer: , score: }]
 var globalScore = 0; // my global t value
 var scoreResults = []; // [{ peer: , score: }]
-const topic = "demazon1";
+const topic = "demazon";
 
 // Function to get Peer ID
 async function getPeerId() {
@@ -113,10 +115,10 @@ async function rateItem(elem) {
     if (item !== "No Item" && rating !== "") {
         const found = storeInfo['scores'].find(element => element.store === itemStore);
         if (found == undefined) {
-            storeInfo['scores'].push({ store: itemStore, score: parseInt(rating) })
+            storeInfo['scores'].push({ store: itemStore, score: parseFloat(rating) })
         }
         else {
-            found['score'] += parseInt(rating);
+            found['score'] += parseFloat(rating);
         }
         const fs = require('fs');
         fs.writeFile(fileAddress, JSON.stringify(storeInfo), (err) => {
@@ -161,24 +163,25 @@ function receiveMsg(msg) {
     // score:<round> <storeId> <t_j> complete
     if (query == "score") {
         if (args.length > 3 && args[3] == 'complete') { // complete
-            scoreResults.push({ peer: args[1], score: parseInt(args[2]) });
+            scoreResults.push({ peer: args[1], score: parseFloat(args[2]) });
         }
         if (args[0] == 'init') {
-            if (args[2] == fileID) {
-                peerScore.push({ peer: args[1], score: parseInt(args[3]) });
+            if (customer.has(args[1]) == true && args[2] == fileID) {
+                peerScore.push({ peer: args[1], score: parseFloat(args[3]) });
             }
         }
         else {
             if (customer.has(args[1]) == true) {
+                let ps = { peer: args[1], score: parseFloat(args[2]) };
                 if (args.length > 3 && args[3] == 'complete') { // complete
-                    completePeer.push({ peer: args[1], score: parseInt(args[2]) });
+                    completePeer.push(ps);
                 }
                 const found = trustScore.find(element => element.round === parseInt(args[0]));
                 if (found == undefined) {
-                    trustScore.push({ round: parseInt(args[0]), t: [{ peer: args[1], score: parseInt(args[2]) }] })
+                    trustScore.push({ round: parseInt(args[0]), t: [ps] })
                 }
                 else {
-                    found.t.push({ peer: args[1], score: parseInt(args[2]) });
+                    found.t.push(ps);
                 }
             }
         }
@@ -239,7 +242,7 @@ async function readStoreFile() {
 
 async function buyItem(element) {
     console.log("***buy item");
-    var itemStore = document.getElementById("sits" + idx).innerText;
+    var itemStore = document.getElementById("sits" + element.value).innerText;
     const msg = new TextEncoder().encode(`buy:${itemStore} ${fileID}`)
     await ipfs.pubsub.publish(topic, msg)
 }
@@ -283,14 +286,16 @@ async function calculateRating() {
     // compute local c_ij and pubsub c
     await getPeerRating();
     for (let npr of normalizedPeerRating) {
-        const msg = new TextEncoder().encode(`score:init ${fileID} ${npr.store} ${npr.score}`);
-        await ipfs.pubsub.publish(topic, msg);
+        if (fileID != npr.store) {
+            const msg = new TextEncoder().encode(`score:init ${fileID} ${npr.store} ${npr.score}`);
+            await ipfs.pubsub.publish(topic, msg);
+        }
     }
     console.log(`${fileID} sent out c_ij`);
 
     // calculate t in rounds
     let round = 0;
-    if (knownStore.length == 0) {
+    if (knownStore.size == 0) {
         globalScore = 0;
         const msg = new TextEncoder().encode(`score:${round} ${fileID} ${globalScore} complete`);
         await ipfs.pubsub.publish(topic, msg);
@@ -341,7 +346,6 @@ async function getPeerRating() {
     console.log("***get peer rating");
     localPeerRating = storeInfo.scores;
     normalizedPeerRating = [];
-    console.log("Local peer rating length and content: ", localPeerRating.length, localPeerRating);
     if (localPeerRating.length > 0) {
         let sum = Object.values(localPeerRating).map(el => el.score).reduce((a, b) => a + b);
         for (let peer of localPeerRating) {
@@ -353,5 +357,4 @@ async function getPeerRating() {
     //         normalizedPeerRating.push({store: peer, score: 1 / knownStore.size});
     //     }
     // }
-    console.log("Normalized peer rating length and content: ", normalizedPeerRating.length, normalizedPeerRating);
 }
