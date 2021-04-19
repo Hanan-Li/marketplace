@@ -15,7 +15,9 @@ let itemID = 0; // for counting items in my store
 const knownStore = new Set();
 const customer = new Set(); // peers who have bought from me
 
-// for debug
+// FOR DEBUG ONLY
+// TODO: change fileID to your own store ipns id
+// TODO: configute knownStore, customer, data/store in correspondance to each other
 let fileID = 'k51qzi5uqu5dkhrjhbeiodogo6uqogdiyqmte2le0tw6i96qssm9qe868m33e0'; // my store id
 knownStore.add("k51qzi5uqu5dky24v2pnpcotcpa57anterwpcrtv0wxyadwrl8by1afehya3kt");
 customer.add("k51qzi5uqu5dky24v2pnpcotcpa57anterwpcrtv0wxyadwrl8by1afehya3kt");
@@ -28,17 +30,7 @@ var globalScore = 0; // my global t value
 var scoreResults = []; // [{ peer: , score: }]
 const topic = "demazon1";
 
-// Function to get Peer ID
-async function getPeerId() {
-    const config = await ipfs.config.getAll();
-    PeerID = config['Identity']['PeerID'];
-}
 
-function ab2str(buf) {
-    return String.fromCharCode.apply(null, new Uint8Array(buf));
-}
-
-// Add Item to IPFS
 async function addNewItem(e) {
     e.preventDefault();
     const itemName = document.getElementById('ItemName').value;
@@ -56,7 +48,6 @@ async function addNewItem(e) {
     await ipfs.pubsub.publish(topic, msg)
 }
 
-// Search Item
 async function searchItem(e) {
     e.preventDefault();
     // clean up search item card
@@ -104,7 +95,13 @@ async function searchItem(e) {
     }
 }
 
-// Rate Item
+async function buyItem(element) {
+    console.log("***buy item");
+    var itemStore = document.getElementById("sits" + element.value).innerText;
+    const msg = new TextEncoder().encode(`buy:${itemStore} ${fileID}`)
+    await ipfs.pubsub.publish(topic, msg)
+}
+
 async function rateItem(elem) {
     console.log("rate item");
     var idx = elem.value;
@@ -145,7 +142,7 @@ async function createStore() {
 function receiveMsg(msg) {
     // parse the msg
     let data = ab2str(msg.data);
-    console.log("receive pubsub msg: ", data);
+    console.log("+++receive pubsub msg: ", data);
     let idx = data.indexOf(":");
     let query = data.substring(0, idx);
     let info = data.substring(idx + 1);
@@ -200,53 +197,6 @@ function receiveMsg(msg) {
     }
 }
 
-async function publishIPNS() {
-    // add changed store file
-    const storeFile = await ipfs.add(globSource(fileAddress, { recursive: false, pin: false }));
-    // publish
-    const publishFile = await ipfs.name.publish(`/ipfs/${storeFile.cid}`);
-    // remove old pinned store file
-    // ipfs.pin.rm(`${storeFile.cid}`);
-    fileID = publishFile.name;
-    console.log(`published IPNS: ${publishFile.name}`);
-}
-
-function updateItems() {
-    $('#own_items').empty();
-    for (let i = 0; i < storeInfo['items'].length; i++) {
-        let id = storeInfo['items'][i]['id'];
-        let name = storeInfo['items'][i]['name'];
-        let price = storeInfo['items'][i]['price'];
-        let oneItem = `
-        <div class="card">
-        <!-- <img src="..." class="card-img-top" alt="..."> -->
-        <div class="card-body">
-            <h5 class="card-title" id="ith${i}">${name}</h5>
-            <p class="card-text" id="itp${i}">$${price}</p>
-            <a href="#" class="btn btn-primary">Get Bids</a>
-        </div>
-        </div>`;
-        $('#own_items').append(oneItem);
-    }
-}
-
-async function readStoreFile() {
-    await fs.readFile(fileAddress, 'utf8', function (err, data) {
-        // Display the file content
-        // console.log(data);
-        storeInfo = JSON.parse(data);
-        console.log("load store info: ", storeInfo);
-        updateItems();
-    });
-}
-
-async function buyItem(element) {
-    console.log("***buy item");
-    var itemStore = document.getElementById("sits" + element.value).innerText;
-    const msg = new TextEncoder().encode(`buy:${itemStore} ${fileID}`)
-    await ipfs.pubsub.publish(topic, msg)
-}
-
 // Set PeerID and other information
 window.addEventListener('DOMContentLoaded', () => {
     const replaceText = (selector, text) => {
@@ -266,10 +216,6 @@ window.addEventListener('DOMContentLoaded', () => {
 // Based on Algorithm 3 of EigenTrust Paper
 var localPeerRating = []; // s_ij: [{ store: , score: }]
 var normalizedPeerRating = []; // c_ij: [{ store: , score: }]
-var globaltrustRating = {}; // t: {}
-
-var peersWhoHaveBoughtFromMe = {}; // A_i
-var peersWhoIHaveBoughtFrom = {}; // B_i
 
 var alphaValue = 0.2;
 
@@ -289,7 +235,6 @@ async function calculateRating() {
         if (fileID != npr.store) {
             const msg = new TextEncoder().encode(`score:init ${fileID} ${npr.store} ${npr.score}`);
             await ipfs.pubsub.publish(topic, msg);
-            console.log("send out c_ij: ", ab2str(msg));
         }
     }
 
@@ -305,7 +250,6 @@ async function calculateRating() {
         trustScore.push({ round: 0, t: [] });
         const found = trustScore.find(element => element.round == 0);
         for (let cus of customer) {
-            console.log(`add ${cus} to init trustScore`);
             found.t.push({ peer: cus, score: e });
         }
         var prevT = e;
@@ -359,13 +303,60 @@ async function getPeerRating() {
             normalizedPeerRating.push({ store: peer.store, score: peer.score / sum });
         }
     }
-    // else { // node i is inactive/new
-    //     for (let peer of knownStore) {
-    //         normalizedPeerRating.push({store: peer, score: 1 / knownStore.size});
-    //     }
-    // }
+}
+
+
+//-----------------------------------helper functions-------------------------------------------------------
+async function publishIPNS() {
+    // add changed store file
+    const storeFile = await ipfs.add(globSource(fileAddress, { recursive: false, pin: false }));
+    // publish
+    const publishFile = await ipfs.name.publish(`/ipfs/${storeFile.cid}`);
+    // remove old pinned store file
+    // ipfs.pin.rm(`${storeFile.cid}`);
+    fileID = publishFile.name;
+    console.log(`published IPNS: ${publishFile.name}`);
+}
+
+function updateItems() {
+    $('#own_items').empty();
+    for (let i = 0; i < storeInfo['items'].length; i++) {
+        let id = storeInfo['items'][i]['id'];
+        let name = storeInfo['items'][i]['name'];
+        let price = storeInfo['items'][i]['price'];
+        let oneItem = `
+        <div class="card">
+        <!-- <img src="..." class="card-img-top" alt="..."> -->
+        <div class="card-body">
+            <h5 class="card-title" id="ith${i}">${name}</h5>
+            <p class="card-text" id="itp${i}">$${price}</p>
+            <a href="#" class="btn btn-primary">Get Bids</a>
+        </div>
+        </div>`;
+        $('#own_items').append(oneItem);
+    }
+}
+
+async function readStoreFile() {
+    await fs.readFile(fileAddress, 'utf8', function (err, data) {
+        // Display the file content
+        // console.log(data);
+        storeInfo = JSON.parse(data);
+        console.log("load store info: ", storeInfo);
+        updateItems();
+    });
+}
+
+// Function to get Peer ID
+async function getPeerId() {
+    const config = await ipfs.config.getAll();
+    PeerID = config['Identity']['PeerID'];
 }
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function ab2str(buf) {
+    return String.fromCharCode.apply(null, new Uint8Array(buf));
 }
